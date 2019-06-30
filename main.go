@@ -21,9 +21,9 @@ func main() {
 		fmt.Println("Error: must provide a git repository url")
 		os.Exit(1)
 	}
-	repo := args[0]
+	remote := args[0]
 
-	resp, err := download(path, repo)
+	resp, err := download(path, remote)
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 		os.Exit(1)
@@ -60,36 +60,36 @@ func getPath() (string, error) {
 	return path, nil
 }
 
-// download clones the repo to the GETPATH.
-func download(path string, repo string) (string, error) {
+// download clones the remote repository to the GETPATH.
+func download(path string, remote string) (string, error) {
 	cmd := vcs.ByCmd("git")
-	if err := cmd.Ping("https", repo); err != nil {
-		return "", fmt.Errorf("%s is not a valid git repository", repo)
+	repo, err := vcs.RepoRootForImportPath(remote, false)
+	if err != nil || repo.VCS != cmd {
+		return "", fmt.Errorf("%s is not a valid git repository", remote)
 	}
 
-	root := filepath.Join(path, repo)
-	gitp := filepath.Join(root, ".git")
-
-	if _, err := os.Stat(gitp); os.IsNotExist(err) {
+	dir := filepath.Join(path, repo.Root)
+	git := filepath.Join(dir, ".git")
+	if _, err := os.Stat(git); os.IsNotExist(err) {
 		// Check if root folder exists, even though the .git directory does not.
-		if _, err := os.Stat(root); !os.IsNotExist(err) {
-			return "", fmt.Errorf("%s exists but %s does not", root, gitp)
+		if _, err := os.Stat(dir); !os.IsNotExist(err) {
+			return "", fmt.Errorf("%s exists but %s does not", dir, git)
 		}
 
-		parent, _ := filepath.Split(root)
+		parent, _ := filepath.Split(dir)
 		err := os.MkdirAll(parent, os.ModePerm)
 		if err != nil {
 			return "", err
 		}
 
-		if err = cmd.Create(root, "https://"+repo); err != nil {
+		if err = cmd.Create(dir, repo.Repo); err != nil {
 			return "", err
 		}
 	} else {
-		if err = cmd.Download(root); err != nil {
+		if err = cmd.Download(dir); err != nil {
 			return "", err
 		}
 	}
 
-	return root, nil
+	return dir, nil
 }
