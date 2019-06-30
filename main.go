@@ -32,12 +32,14 @@ func main() {
 	fmt.Println(resp)
 }
 
+// DefaultPath is the path where repositories will be cloned to if GETPATH is unset.
+const DefaultPath = "~/src"
+
 // getPath gets the GETPATH path and creates the directory if needed.
 func getPath() (string, error) {
 	path := os.Getenv("GETPATH")
-
 	if len(path) == 0 {
-		path = "~/src"
+		path = DefaultPath
 	}
 
 	path, err := homedir.Expand(path)
