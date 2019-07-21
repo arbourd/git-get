@@ -4,6 +4,12 @@
 
 ## Installation
 
+Install with `brew`.
+
+```console
+$ brew install arbourd/tap/git-get
+```
+
 Install with `go get`.
 
 ```console
