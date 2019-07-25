@@ -23,7 +23,7 @@ func main() {
 	}
 	remote := args[0]
 
-	resp, err := download(path, remote)
+	resp, err := download(path, filepath.Clean(remote))
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 		os.Exit(1)
