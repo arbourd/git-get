@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/tools/go/vcs"
@@ -23,7 +24,7 @@ func main() {
 	}
 	remote := args[0]
 
-	resp, err := download(path, filepath.Clean(remote))
+	resp, err := download(path, clean(remote))
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 		os.Exit(1)
@@ -60,6 +61,13 @@ func getPath() (string, error) {
 	}
 
 	return path, nil
+}
+
+// clean cleans up the remote string by treating it as a filepath and removing protocols.
+func clean(remote string) string {
+	r1, _ := regexp.Compile("^[a-zA-Z]*://")
+	r2, _ := regexp.Compile("/{2,}")
+	return r2.ReplaceAllString(r1.ReplaceAllString(remote, ""), "/")
 }
 
 // download clones the remote repository to the GETPATH.
