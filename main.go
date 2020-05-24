@@ -70,7 +70,7 @@ func clean(remote string) string {
 	return r2.ReplaceAllString(r1.ReplaceAllString(remote, ""), "/")
 }
 
-// download clones the remote repository to the GETPATH.
+// download clones the remote repository to the GETPATH and returns the directory.
 func download(path string, remote string) (string, error) {
 	cmd := vcs.ByCmd("git")
 	repo, err := vcs.RepoRootForImportPath(remote, false)
