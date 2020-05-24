@@ -70,9 +70,47 @@ func TestClean(t *testing.T) {
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			str := clean(c.remote)
-			if str != c.want {
-				t.Fatalf("unexpected cleaned string:\n\t(GOT): %#v\n\t(WNT): %#v", str, c.want)
+			remote := clean(c.remote)
+			if remote != c.want {
+				t.Fatalf("unexpected cleaned string:\n\t(GOT): %#v\n\t(WNT): %#v", remote, c.want)
+			}
+		})
+	}
+}
+
+func TestDownload(t *testing.T) {
+	dir, _ := ioutil.TempDir("", "git-get")
+	defer os.RemoveAll(dir)
+
+	cases := map[string]struct {
+		remote string
+		want   string
+		err    bool
+	}{
+		"clone": {
+			remote: "github.com/arbourd/git-get",
+			want:   filepath.Join(dir, "github.com/arbourd/git-get"),
+		},
+		"invalid remote": {
+			remote: "https://github.com////arbourd/git-get",
+			err:    true,
+		},
+		"not found remote": {
+			remote: "github.com/arbourd/definitely-doesnt-exist",
+			err:    true,
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			path, err := download(dir, c.remote)
+
+			if err != nil && !c.err {
+				t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
+			} else if err == nil && c.err {
+				t.Fatalf("missing error:\n\t(GOT): nil\n\t")
+			} else if path != c.want {
+				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.want)
 			}
 		})
 	}
