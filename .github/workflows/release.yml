@@ -20,12 +20,11 @@ jobs:
         uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
-          args: release --rm-dist --skip-publish
+          args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   bump:
-    if: startsWith(github.ref, 'refs/tags/v')
     name: Bump Homebrew formula
     runs-on: ubuntu-latest
 
