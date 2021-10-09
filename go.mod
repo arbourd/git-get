@@ -7,4 +7,4 @@ require (
 	golang.org/x/tools v0.1.7
 )
 
-require golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e // indirect
+require golang.org/x/sys v0.0.0-20211007075335-d3039528d8ac // indirect
