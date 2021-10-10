@@ -58,6 +58,10 @@ func TestClean(t *testing.T) {
 			remote: "https://github.com/arbourd/git-get",
 			want:   "github.com/arbourd/git-get",
 		},
+		".git": {
+			remote: "github.com/arbourd/git-get.git",
+			want:   "github.com/arbourd/git-get",
+		},
 		"filepath": {
 			remote: "github.com///arbourd/git-get",
 			want:   "github.com/arbourd/git-get",
