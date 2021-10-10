@@ -66,8 +66,9 @@ func getPath() (string, error) {
 // clean cleans up the remote string by treating it as a filepath and removing protocols.
 func clean(remote string) string {
 	r1, _ := regexp.Compile("^[a-zA-Z]*://")
-	r2, _ := regexp.Compile("/{2,}")
-	return r2.ReplaceAllString(r1.ReplaceAllString(remote, ""), "/")
+	r2, _ := regexp.Compile(`\.git$`)
+	r3, _ := regexp.Compile("/{2,}")
+	return r3.ReplaceAllString(r2.ReplaceAllString(r1.ReplaceAllString(remote, ""), ""), "/")
 }
 
 // download clones the remote repository to the GETPATH and returns the directory.
