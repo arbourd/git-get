@@ -30,4 +30,5 @@ brews:
       token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}'
 
     test: |
-      assert_match "#{testpath}/src/github.com/arbourd/git-get", shell_output("#{bin}/git-get github.com/arbourd/git-get")
+      assert_match "#{testpath}/src/github.com/arbourd/git-get",
+                   shell_output("#{bin}/git-get github.com/arbourd/git-get")
