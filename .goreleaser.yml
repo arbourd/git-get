@@ -1,7 +1,3 @@
-before:
-  hooks:
-    - go mod download
-
 builds:
   - env:
       - CGO_ENABLED=0
@@ -21,3 +17,17 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+
+brews:
+  - name: git-get
+    description: Go gets your code
+    homepage: https://github.com/arbourd/git-get
+    folder: Formula
+
+    tap:
+      owner: arbourd
+      name: homebrew-tap
+      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}'
+
+    test: |
+      assert_match "#{testpath}/src/github.com/arbourd/git-get", shell_output("#{bin}/git-get github.com/arbourd/git-get")
