@@ -22,6 +22,11 @@ brews:
   - name: git-get
     description: Go gets your code
     homepage: https://github.com/arbourd/git-get
+
+    test: |
+      assert_match "#{testpath}/src/github.com/arbourd/git-get",
+                   shell_output("#{bin}/git-get github.com/arbourd/git-get")
+
     folder: Formula
 
     tap:
@@ -29,6 +34,6 @@ brews:
       name: homebrew-tap
       token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}'
 
-    test: |
-      assert_match "#{testpath}/src/github.com/arbourd/git-get",
-                   shell_output("#{bin}/git-get github.com/arbourd/git-get")
+    commit_author:
+      name: Dylan Arbour
+      email: arbourd@users.noreply.github.com
