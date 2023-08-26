@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/ldez/go-git-cmd-wrapper/v2/clone"
+	"github.com/ldez/go-git-cmd-wrapper/v2/git"
+	"github.com/ldez/go-git-cmd-wrapper/v2/types"
 	"github.com/mitchellh/go-homedir"
-	"golang.org/x/tools/go/vcs"
 )
 
 func main() {
@@ -73,31 +75,33 @@ func clean(remote string) string {
 
 // download clones the remote repository to the GETPATH and returns the directory.
 func download(path string, remote string) (string, error) {
-	cmd := vcs.ByCmd("git")
-	repo, err := vcs.RepoRootForImportPath(remote, false)
-	if err != nil || repo.VCS != cmd {
+	httpsremote := "https://" + remote
+
+	// check if git remote exists
+	_, err := git.Raw("ls-remote", func(g *types.Cmd) {
+		g.AddOptions(httpsremote)
+	})
+	if err != nil {
 		return "", fmt.Errorf("%s is not a valid git repository", remote)
 	}
 
-	dir := filepath.Join(path, repo.Root)
-	git := filepath.Join(dir, ".git")
-	if _, err := os.Stat(git); os.IsNotExist(err) {
+	dir := filepath.Join(path, remote)
+	parentdir, _ := filepath.Split(dir)
+	gitdir := filepath.Join(dir, ".git")
+
+	if _, err := os.Stat(gitdir); os.IsNotExist(err) {
 		// Check if root folder exists, even though the .git directory does not.
 		if _, err := os.Stat(dir); !os.IsNotExist(err) {
-			return "", fmt.Errorf("%s exists but %s does not", dir, git)
+			return "", fmt.Errorf("%s exists but %s does not", dir, gitdir)
 		}
 
-		parent, _ := filepath.Split(dir)
-		err := os.MkdirAll(parent, os.ModePerm)
+		err := os.MkdirAll(parentdir, os.ModePerm)
 		if err != nil {
 			return "", err
 		}
 
-		if err = cmd.Create(dir, repo.Repo); err != nil {
-			return "", err
-		}
-	} else {
-		if err = cmd.Download(dir); err != nil {
+		_, err = git.Clone(clone.Repository("https://"+remote), clone.Directory(dir))
+		if err != nil {
 			return "", err
 		}
 	}

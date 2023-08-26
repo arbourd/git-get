@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +10,7 @@ import (
 
 func TestGetPath(t *testing.T) {
 	home, _ := homedir.Dir()
-	dir, _ := ioutil.TempDir("", "git-get")
+	dir, _ := os.MkdirTemp("", "git-get")
 	defer os.RemoveAll(dir)
 
 	cases := map[string]struct {
@@ -50,15 +49,15 @@ func TestClean(t *testing.T) {
 		remote string
 		want   string
 	}{
-		"git": {
+		"git protocol": {
 			remote: "git://github.com/arbourd/git-get",
 			want:   "github.com/arbourd/git-get",
 		},
-		"https": {
+		"https protocol": {
 			remote: "https://github.com/arbourd/git-get",
 			want:   "github.com/arbourd/git-get",
 		},
-		".git": {
+		".git removal": {
 			remote: "github.com/arbourd/git-get.git",
 			want:   "github.com/arbourd/git-get",
 		},
@@ -66,9 +65,9 @@ func TestClean(t *testing.T) {
 			remote: "github.com///arbourd/git-get",
 			want:   "github.com/arbourd/git-get",
 		},
-		"https filepath": {
-			remote: "https://github.com///arbourd/git-get",
-			want:   "github.com/arbourd/git-get",
+		"gitlab subgroups": {
+			remote: "gitlab.com/gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin",
+			want:   "gitlab.com/gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin",
 		},
 	}
 
@@ -83,7 +82,7 @@ func TestClean(t *testing.T) {
 }
 
 func TestDownload(t *testing.T) {
-	dir, _ := ioutil.TempDir("", "git-get")
+	dir, _ := os.MkdirTemp("", "git-get")
 	defer os.RemoveAll(dir)
 
 	cases := map[string]struct {
@@ -91,9 +90,13 @@ func TestDownload(t *testing.T) {
 		want   string
 		err    bool
 	}{
-		"clone": {
+		"github clone": {
 			remote: "github.com/arbourd/git-get",
 			want:   filepath.Join(dir, "github.com/arbourd/git-get"),
+		},
+		"gitlab clone": {
+			remote: "gitlab.com/gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin",
+			want:   filepath.Join(dir, "gitlab.com/gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin"),
 		},
 		"invalid remote": {
 			remote: "https://github.com////arbourd/git-get",
