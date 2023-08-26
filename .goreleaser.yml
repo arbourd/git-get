@@ -10,10 +10,10 @@ builds:
       - arm64
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
 archives:
-  - name_template: '{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+  - name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format_overrides:
       - goos: windows
         format: zip
@@ -29,10 +29,10 @@ brews:
 
     folder: Formula
 
-    tap:
+    repository:
       owner: arbourd
       name: homebrew-tap
-      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}'
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
 
     commit_author:
       name: Dylan Arbour
