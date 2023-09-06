@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/ldez/go-git-cmd-wrapper/v2/clone"
 	"github.com/ldez/go-git-cmd-wrapper/v2/git"
@@ -26,7 +28,15 @@ func main() {
 	}
 	remote := args[0]
 
-	resp, err := download(path, clean(remote))
+	url, err := ParseURL(remote)
+	if err != nil {
+		fmt.Printf("Error: unable to parse repository url: \"%s\"\n", remote)
+		os.Exit(1)
+	}
+
+	dir := filepath.Join(path, ParseDirectory(url))
+
+	resp, err := Download(url, dir)
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 		os.Exit(1)
@@ -37,6 +47,9 @@ func main() {
 
 // DefaultPath is the path where repositories will be cloned to if GETPATH is unset.
 const DefaultPath = "~/src"
+
+// DefaultScheme is the scheme used when a URL is provided without one.
+const DefaultScheme = "https"
 
 // getPath gets the GETPATH path and creates the directory if needed.
 func getPath() (string, error) {
@@ -65,27 +78,48 @@ func getPath() (string, error) {
 	return path, nil
 }
 
-// clean cleans up the remote string by treating it as a filepath and removing protocols.
-func clean(remote string) string {
-	r1, _ := regexp.Compile("^[a-zA-Z]*://")
-	r2, _ := regexp.Compile(`\.git$`)
-	r3, _ := regexp.Compile("/{2,}")
-	return r3.ReplaceAllString(r2.ReplaceAllString(r1.ReplaceAllString(remote, ""), ""), "/")
-}
+var scpSyntaxRe = regexp.MustCompile(`^(\w+)@([\w.-]+):(.*)$`)
 
-// download clones the remote repository to the GETPATH and returns the directory.
-func download(path string, remote string) (string, error) {
-	httpsremote := "https://" + remote
-
-	// check if git remote exists
-	_, err := git.Raw("ls-remote", func(g *types.Cmd) {
-		g.AddOptions(httpsremote)
-	})
-	if err != nil {
-		return "", fmt.Errorf("%s is not a valid git repository", remote)
+// ParseURL parses and returns a URL from the remote string provided
+func ParseURL(remote string) (*url.URL, error) {
+	// Parse and return URL if valid SCP
+	if m := scpSyntaxRe.FindStringSubmatch(remote); m != nil {
+		// Match SCP-like syntax and convert it to a URL.
+		// Eg, "git@github.com:user/repo" becomes
+		// "ssh://git@github.com/user/repo".
+		return &url.URL{
+			Scheme: "ssh",
+			User:   url.User(m[1]),
+			Host:   m[2],
+			Path:   m[3],
+		}, nil
 	}
 
-	dir := filepath.Join(path, remote)
+	u, err := url.Parse(remote)
+	if len(u.Scheme) == 0 {
+		u.Scheme = DefaultScheme
+	}
+
+	return u, err
+}
+
+// ParseDirectory parses the directory where the cloned repository will be downloaded from the URL
+func ParseDirectory(u *url.URL) string {
+	dir, _ := url.JoinPath(u.Host, u.Path)
+	dir = strings.TrimSuffix(dir, ".git")
+	return filepath.Clean(dir)
+}
+
+// Download clones the remote repository to the GETPATH and returns the directory.
+func Download(u *url.URL, dir string) (string, error) {
+	// Check if git remote exists
+	_, err := git.Raw("ls-remote", func(g *types.Cmd) {
+		g.AddOptions(u.String())
+	})
+	if err != nil {
+		return "", fmt.Errorf("git repository not found: %s", u.String())
+	}
+
 	parentdir, _ := filepath.Split(dir)
 	gitdir := filepath.Join(dir, ".git")
 
@@ -100,7 +134,7 @@ func download(path string, remote string) (string, error) {
 			return "", err
 		}
 
-		_, err = git.Clone(clone.Repository("https://"+remote), clone.Directory(dir))
+		_, err = git.Clone(clone.Repository(u.String()), clone.Directory(dir))
 		if err != nil {
 			return "", err
 		}
