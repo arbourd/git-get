@@ -28,7 +28,10 @@ jobs:
           go-version-file: go.mod
 
       - run: go mod download
-      - run: go test
+      - run: go test -v ./...
+
+      - run: go build .
+      - run: ./git-get github.com/arbourd/git-get
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

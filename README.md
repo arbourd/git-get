@@ -4,10 +4,10 @@
 
 ## Usage
 
-Set a `GETPATH` or use the default of `~/src`.
+Set a `GITGET_GETPATH` or use the default of `~/src`.
 
 ```shell
-export GETPATH=~/src
+export GITGET_GETPATH=~/src
 ```
 
 Get a repository.
