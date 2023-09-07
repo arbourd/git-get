@@ -27,6 +27,9 @@ brews:
       assert_match "#{testpath}/src/github.com/arbourd/git-get",
                    shell_output("#{bin}/git-get github.com/arbourd/git-get")
 
+    conflicts:
+      - git-extras
+
     folder: Formula
 
     repository:
