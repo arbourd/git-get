@@ -38,8 +38,8 @@ Install with `brew`.
 $ brew install arbourd/tap/git-get
 ```
 
-Install with `go get`.
+Install with `go install`.
 
 ```console
-$ go get -u github.com/arbourd/git-get
+$ go install github.com/arbourd/git-get@latest
 ```
