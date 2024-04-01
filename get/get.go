@@ -78,11 +78,14 @@ func ParseURL(remote string) (*url.URL, error) {
 	}
 
 	u, err := url.Parse(remote)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(u.Scheme) == 0 {
 		u.Scheme = defaultScheme
 	}
-
-	return u, err
+	return u, nil
 }
 
 // Directory parses the directory where the cloned repository will be downloaded from the URL.

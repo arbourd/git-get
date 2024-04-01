@@ -102,8 +102,9 @@ func TestConfigPath(t *testing.T) {
 
 func TestParseURL(t *testing.T) {
 	cases := map[string]struct {
-		remote string
-		want   string
+		remote  string
+		want    string
+		wantErr bool
 	}{
 		"git protocol": {
 			remote: "git://github.com/arbourd/git-get.git",
@@ -121,12 +122,22 @@ func TestParseURL(t *testing.T) {
 			remote: "github.com/arbourd/git-get",
 			want:   "https://github.com/arbourd/git-get",
 		},
+		"invalid url": {
+			remote:  "github.com/arbourd/git-get%x",
+			want:    "https://github.com/arbourd/git-get",
+			wantErr: true,
+		},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			url, _ := ParseURL(c.remote)
-			if url.String() != c.want {
+			url, err := ParseURL(c.remote)
+
+			if err != nil && !c.wantErr {
+				t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
+			} else if err == nil && c.wantErr {
+				t.Fatalf("expected error:\n\t(GOT): nil\n\t")
+			} else if url != nil && url.String() != c.want {
 				t.Fatalf("unexpected parsed url string:\n\t(GOT): %#v\n\t(WNT): %#v", url.String(), c.want)
 			}
 		})
