@@ -4,97 +4,140 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/ldez/go-git-cmd-wrapper/v2/config"
+	"github.com/ldez/go-git-cmd-wrapper/v2/git"
 	"github.com/mitchellh/go-homedir"
 )
 
 func TestPath(t *testing.T) {
 	home, _ := homedir.Dir()
-	dir, _ := os.MkdirTemp("", "git-get")
-	defer os.RemoveAll(dir)
+
+	configDir, _ := os.MkdirTemp("", "git-get-gitconfig-")
+	envDir, _ := os.MkdirTemp("", "git-get-envvar-")
+	defer os.RemoveAll(configDir)
+	defer os.RemoveAll(envDir)
+
+	out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
+	if before := strings.TrimSpace(out); before != "" {
+		// Set git-get global gitconfig at the end of tests if previously set
+		defer git.Config(config.Global, config.Entry(GitConfigKey, before))
+	} else {
+		// Unset git-get global gitconfig at the end of tests if previously unset
+		defer git.Config(config.Global, config.Unset(GitConfigKey, ""))
+	}
 
 	cases := map[string]struct {
-		pathenv string
-		want    string
-		err     string
+		gitConfigGetPath string
+		envVarGetPath    string
+		expectedPath     string
+		wantErr          bool
 	}{
 		"default": {
-			want: filepath.Join(home, "src"),
+			expectedPath: filepath.Join(home, "src"),
 		},
-		"custom": {
-			pathenv: filepath.Join(dir, "src"),
-			want:    filepath.Join(dir, "src"),
+		"git config getpath": {
+			envVarGetPath: filepath.Join(configDir),
+			expectedPath:  filepath.Join(configDir),
 		},
-		"invalid": {
-			pathenv: "../test",
-			err:     "GETPATH entry is relative; must be an absolute path",
+		"env var getpath": {
+			envVarGetPath: filepath.Join(envDir),
+			expectedPath:  filepath.Join(envDir),
+		},
+		"git config getpath over env var getpath": {
+			gitConfigGetPath: filepath.Join(configDir),
+			envVarGetPath:    filepath.Join(envDir),
+			expectedPath:     filepath.Join(configDir),
+		},
+		"relative GETPATH": {
+			envVarGetPath: "../test",
+			wantErr:       true,
 		},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			// Empty GETPATH if set for tests
-			os.Setenv("GITGET_GETPATH", "")
-			if c.pathenv != "" {
-				os.Setenv("GITGET_GETPATH", c.pathenv)
+			// Empty GETPATH for tests
+			git.Config(config.Global, config.Unset(GitConfigKey, ""))
+			os.Setenv("GETPATH", "")
+
+			if c.gitConfigGetPath != "" {
+				git.Config(config.Global, config.Entry(GitConfigKey, c.gitConfigGetPath))
+			}
+
+			if c.envVarGetPath != "" {
+				os.Setenv("GETPATH", c.envVarGetPath)
 			}
 
 			path, err := Path()
-			if err != nil && c.err == "" {
+			if err != nil && !c.wantErr {
 				t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
-			} else if err == nil && len(c.err) > 0 {
-				t.Fatalf("expected error:\n\t(GOT): nil\n\t(WNT): %s", c.err)
-			} else if path != c.want {
-				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.want)
+			} else if err == nil && c.wantErr {
+				t.Fatalf("expected error:\n\t(GOT): nil\n")
+			} else if path != c.expectedPath {
+				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.expectedPath)
 			}
 		})
 	}
 }
 
 func TestConfigPath(t *testing.T) {
-	dir, _ := os.MkdirTemp("", "git-get")
-	defer os.RemoveAll(dir)
+	configDir, _ := os.MkdirTemp("", "git-get-gitconfig-")
+	envDir, _ := os.MkdirTemp("", "git-get-envvar-")
+	defer os.RemoveAll(configDir)
+	defer os.RemoveAll(envDir)
+
+	out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
+	if before := strings.TrimSpace(out); before != "" {
+		// Set git-get global gitconfig at the end of tests if previously set
+		defer git.Config(config.Global, config.Entry(GitConfigKey, before))
+	} else {
+		// Unset git-get global gitconfig at the end of tests if previously unset
+		defer git.Config(config.Global, config.Unset(GitConfigKey, ""))
+	}
 
 	cases := map[string]struct {
-		GITGET_GETPATH string
-		GETPATH        string
-		want           string
+		gitConfigGetPath string
+		envVarGetPath    string
+		expectedPath     string
 	}{
 		"default": {
-			want: "~/src",
+			expectedPath: "~/src",
 		},
-		"env var": {
-			GITGET_GETPATH: filepath.Join(dir, "new"),
-			want:           filepath.Join(dir, "new"),
+		"git config getpath": {
+			envVarGetPath: filepath.Join(configDir),
+			expectedPath:  filepath.Join(configDir),
 		},
-		"deprecated env var": {
-			GETPATH: filepath.Join(dir, "old"),
-			want:    filepath.Join(dir, "old"),
+		"env var getpath": {
+			envVarGetPath: filepath.Join(envDir),
+			expectedPath:  filepath.Join(envDir),
 		},
-		"new env var overrides deprecated var": {
-			GITGET_GETPATH: filepath.Join(dir, "new"),
-			GETPATH:        filepath.Join(dir, "old"),
-			want:           filepath.Join(dir, "new"),
+		"git config getpath over env var getpath": {
+			gitConfigGetPath: filepath.Join(configDir),
+			envVarGetPath:    filepath.Join(envDir),
+			expectedPath:     filepath.Join(configDir),
 		},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			// Empty GETPATH if set for tests
-			os.Setenv("GITGET_GETPATH", "")
+			// Empty GETPATH for tests
+			git.Config(config.Global, config.Unset(GitConfigKey, ""))
 			os.Setenv("GETPATH", "")
 
-			if c.GITGET_GETPATH != "" {
-				os.Setenv("GITGET_GETPATH", c.GITGET_GETPATH)
+			if c.gitConfigGetPath != "" {
+				git.Config(config.Global, config.Entry(GitConfigKey, c.gitConfigGetPath))
 			}
-			if c.GETPATH != "" {
-				os.Setenv("GETPATH", c.GETPATH)
+
+			if c.envVarGetPath != "" {
+				os.Setenv("GETPATH", c.envVarGetPath)
 			}
 
 			path := configPath()
-			if path != c.want {
-				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.want)
+			if path != c.expectedPath {
+				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.expectedPath)
 			}
 		})
 	}
@@ -194,13 +237,13 @@ func TestDirectory(t *testing.T) {
 }
 
 func TestClone(t *testing.T) {
-	dir, _ := os.MkdirTemp("", "git-get")
+	dir, _ := os.MkdirTemp("", "git-get-")
 	defer os.RemoveAll(dir)
 
 	cases := map[string]struct {
-		url  *url.URL
-		want string
-		err  bool
+		url          *url.URL
+		expectedPath string
+		wantErr      bool
 	}{
 		"clone github": {
 			url: &url.URL{
@@ -208,7 +251,7 @@ func TestClone(t *testing.T) {
 				Host:   "github.com",
 				Path:   "arbourd/git-get",
 			},
-			want: filepath.Join(dir, "github.com/arbourd/git-get"),
+			expectedPath: filepath.Join(dir, "github.com/arbourd/git-get"),
 		},
 		"clone ssh github": {
 			url: &url.URL{
@@ -217,7 +260,7 @@ func TestClone(t *testing.T) {
 				Host:   "github.com",
 				Path:   "arbourd/git-get.git",
 			},
-			want: filepath.Join(dir, "github.com/arbourd/git-get"),
+			expectedPath: filepath.Join(dir, "github.com/arbourd/git-get"),
 		},
 		"clone gitlab subgroups": {
 			url: &url.URL{
@@ -225,7 +268,7 @@ func TestClone(t *testing.T) {
 				Host:   "gitlab.com",
 				Path:   "gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin",
 			},
-			want: filepath.Join(dir, "gitlab.com/gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin"),
+			expectedPath: filepath.Join(dir, "gitlab.com/gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin"),
 		},
 		"invalid url": {
 			url: &url.URL{
@@ -233,7 +276,7 @@ func TestClone(t *testing.T) {
 				Host:   "github.com",
 				Path:   "///arbourd/git-get",
 			},
-			err: true,
+			wantErr: true,
 		},
 		"not found": {
 			url: &url.URL{
@@ -241,20 +284,20 @@ func TestClone(t *testing.T) {
 				Host:   "github.com",
 				Path:   "definitely-doesnt-exist",
 			},
-			err: true,
+			wantErr: true,
 		},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			path, err := Clone(c.url, c.want)
+			path, err := Clone(c.url, c.expectedPath)
 
-			if err != nil && !c.err {
+			if err != nil && !c.wantErr {
 				t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
-			} else if err == nil && c.err {
-				t.Fatalf("missing error:\n\t(GOT): nil\n\t")
-			} else if path != c.want {
-				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.want)
+			} else if err == nil && c.wantErr {
+				t.Fatalf("expected error:\n\t(GOT): nil\n\t")
+			} else if path != c.expectedPath {
+				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.expectedPath)
 			}
 		})
 	}

@@ -9,18 +9,19 @@ import (
 	"strings"
 
 	"github.com/ldez/go-git-cmd-wrapper/v2/clone"
+	"github.com/ldez/go-git-cmd-wrapper/v2/config"
 	"github.com/ldez/go-git-cmd-wrapper/v2/git"
 	"github.com/ldez/go-git-cmd-wrapper/v2/types"
 	"github.com/mitchellh/go-homedir"
 )
 
-// DefaultGetPath is the default path where repositories will be cloned if not configured.
+// DefaultGetPath is the default path where repositories will be cloned if not configured
 const defaultGetPath = "~/src"
 
-// DefaultScheme is the scheme used when a URL is provided without one.
+// DefaultScheme is the scheme used when a URL is provided without one
 const defaultScheme = "https"
 
-// Path returns the absolute GETPATH.
+// Path returns the absolute GETPATH
 func Path() (string, error) {
 	path := configPath()
 
@@ -33,7 +34,7 @@ func Path() (string, error) {
 		return "", fmt.Errorf("GETPATH entry is relative; must be an absolute path: \"%s\"", path)
 	}
 
-	// Make GETPATH directory if it does not exist.
+	// Make GETPATH directory if it does not exist
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
@@ -44,17 +45,23 @@ func Path() (string, error) {
 	return path, nil
 }
 
-// configPath returns the GETPATH from the config, environment or default.
+const (
+	// GitConfigKey is the key that is used to store GETPATH information in the global Git config
+	GitConfigKey = "get.path"
+
+	// EnvVar is the name of the environmental variable that is used to store GETPATH information
+	EnvVar = "GETPATH"
+)
+
+// configPath returns the GETPATH from the config, environment or default
 func configPath() string {
-	path := os.Getenv("GITGET_GETPATH")
-	if len(path) != 0 {
-		return path
+	out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
+	if getpath := strings.TrimSpace(out); getpath != "" {
+		return getpath
 	}
 
-	path = os.Getenv("GETPATH")
-	if len(path) != 0 {
-		fmt.Println("warning: $GETPATH has been deprecated; use $GITGET_GETPATH")
-		return path
+	if getpath := os.Getenv(EnvVar); getpath != "" {
+		return getpath
 	}
 
 	return defaultGetPath
@@ -62,7 +69,7 @@ func configPath() string {
 
 var scpSyntaxRe = regexp.MustCompile(`^(\w+)@([\w.-]+):(.*)$`)
 
-// ParseURL parses and returns a URL from the remote string provided.
+// ParseURL parses and returns a URL from the remote string provided
 func ParseURL(remote string) (*url.URL, error) {
 	// Parse and return URL if valid SCP
 	if m := scpSyntaxRe.FindStringSubmatch(remote); m != nil {
@@ -88,14 +95,14 @@ func ParseURL(remote string) (*url.URL, error) {
 	return u, nil
 }
 
-// Directory parses the directory where the cloned repository will be downloaded from the URL.
+// Directory parses the directory where the cloned repository will be downloaded from the URL
 func Directory(u *url.URL) string {
 	dir, _ := url.JoinPath(u.Host, u.Path)
 	dir = strings.TrimSuffix(dir, ".git")
 	return filepath.Clean(dir)
 }
 
-// Clone clones the remote repository to the GETPATH and returns the directory.
+// Clone clones the remote repository to the GETPATH and returns the directory
 func Clone(u *url.URL, dir string) (string, error) {
 	// Check if git remote exists
 	_, err := git.Raw("ls-remote", func(g *types.Cmd) {
@@ -109,7 +116,7 @@ func Clone(u *url.URL, dir string) (string, error) {
 	gitdir := filepath.Join(dir, ".git")
 
 	if _, err := os.Stat(gitdir); os.IsNotExist(err) {
-		// Check if root folder exists, even though the .git directory does not.
+		// Check if root folder exists, even though the .git directory does not
 		if _, err := os.Stat(dir); !os.IsNotExist(err) {
 			return "", fmt.Errorf("%s exists but %s does not", dir, gitdir)
 		}

@@ -9,32 +9,32 @@ import (
 )
 
 func main() {
+	dir, err := run()
+	if err != nil {
+		fmt.Printf("error: %s\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(dir)
+}
+
+func run() (string, error) {
 	path, err := get.Path()
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
-		os.Exit(1)
+		return "", err
 	}
 
 	args := os.Args[1:]
 	if len(args) == 0 {
-		fmt.Println("Error: must provide a git repository url")
-		os.Exit(1)
+		return "", fmt.Errorf("must provide a git repository url")
 	}
 	remote := args[0]
 
 	url, err := get.ParseURL(remote)
 	if err != nil {
-		fmt.Printf("Error: unable to parse repository url: \"%s\"\n", remote)
-		os.Exit(1)
+		return "", fmt.Errorf("unable to parse repository url: \"%s\"", remote)
 	}
 
 	dir := filepath.Join(path, get.Directory(url))
-
-	resp, err := get.Clone(url, dir)
-	if err != nil {
-		fmt.Printf("Error: %s\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println(resp)
+	return get.Clone(url, dir)
 }
