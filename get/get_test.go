@@ -1,75 +1,62 @@
 package get
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
+	"runtime"
 	"testing"
 
 	"github.com/ldez/go-git-cmd-wrapper/v2/config"
 	"github.com/ldez/go-git-cmd-wrapper/v2/git"
-	"github.com/mitchellh/go-homedir"
 )
 
 func TestPath(t *testing.T) {
-	home, _ := homedir.Dir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("unable to detect homedir: %s", err)
+	}
 
-	configDir, _ := os.MkdirTemp("", "git-get-gitconfig-")
-	envDir, _ := os.MkdirTemp("", "git-get-envvar-")
-	defer os.RemoveAll(configDir)
-	defer os.RemoveAll(envDir)
-
-	out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
-	if before := strings.TrimSpace(out); before != "" {
-		// Set git-get global gitconfig at the end of tests if previously set
-		defer git.Config(config.Global, config.Entry(GitConfigKey, before))
-	} else {
-		// Unset git-get global gitconfig at the end of tests if previously unset
-		defer git.Config(config.Global, config.Unset(GitConfigKey, ""))
+	defaultGetpath := filepath.Join(home, "src")
+	configGetpath := t.TempDir()
+	envGetpath := t.TempDir()
+	err = gitConfigGlobalFixture(t)
+	if err != nil {
+		t.Fatalf("unable to setup test fixture: %s", err)
 	}
 
 	cases := map[string]struct {
-		gitConfigGetPath string
-		envVarGetPath    string
+		gitConfigGetpath string
+		envGetpath       string
 		expectedPath     string
 		wantErr          bool
 	}{
 		"default": {
-			expectedPath: filepath.Join(home, "src"),
+			expectedPath: defaultGetpath,
 		},
 		"git config getpath": {
-			envVarGetPath: filepath.Join(configDir),
-			expectedPath:  filepath.Join(configDir),
+			gitConfigGetpath: configGetpath,
+			expectedPath:     configGetpath,
 		},
 		"env var getpath": {
-			envVarGetPath: filepath.Join(envDir),
-			expectedPath:  filepath.Join(envDir),
+			envGetpath:   envGetpath,
+			expectedPath: envGetpath,
 		},
-		"git config getpath over env var getpath": {
-			gitConfigGetPath: filepath.Join(configDir),
-			envVarGetPath:    filepath.Join(envDir),
-			expectedPath:     filepath.Join(configDir),
+		"git config getpath overrides env var getpath": {
+			gitConfigGetpath: configGetpath,
+			envGetpath:       envGetpath,
+			expectedPath:     configGetpath,
 		},
 		"relative GETPATH": {
-			envVarGetPath: "../test",
-			wantErr:       true,
+			envGetpath: "../test",
+			wantErr:    true,
 		},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			// Empty GETPATH for tests
-			git.Config(config.Global, config.Unset(GitConfigKey, ""))
-			os.Setenv("GETPATH", "")
-
-			if c.gitConfigGetPath != "" {
-				git.Config(config.Global, config.Entry(GitConfigKey, c.gitConfigGetPath))
-			}
-
-			if c.envVarGetPath != "" {
-				os.Setenv("GETPATH", c.envVarGetPath)
-			}
+			setupEnv(c.gitConfigGetpath, c.envGetpath)
 
 			path, err := Path()
 			if err != nil && !c.wantErr {
@@ -84,56 +71,39 @@ func TestPath(t *testing.T) {
 }
 
 func TestConfigPath(t *testing.T) {
-	configDir, _ := os.MkdirTemp("", "git-get-gitconfig-")
-	envDir, _ := os.MkdirTemp("", "git-get-envvar-")
-	defer os.RemoveAll(configDir)
-	defer os.RemoveAll(envDir)
-
-	out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
-	if before := strings.TrimSpace(out); before != "" {
-		// Set git-get global gitconfig at the end of tests if previously set
-		defer git.Config(config.Global, config.Entry(GitConfigKey, before))
-	} else {
-		// Unset git-get global gitconfig at the end of tests if previously unset
-		defer git.Config(config.Global, config.Unset(GitConfigKey, ""))
+	configGetpath := t.TempDir()
+	envGetpath := t.TempDir()
+	err := gitConfigGlobalFixture(t)
+	if err != nil {
+		t.Fatalf("unable to setup test fixture: %s", err)
 	}
 
 	cases := map[string]struct {
-		gitConfigGetPath string
-		envVarGetPath    string
+		gitConfigGetpath string
+		envGetpath       string
 		expectedPath     string
 	}{
 		"default": {
 			expectedPath: "~/src",
 		},
 		"git config getpath": {
-			envVarGetPath: filepath.Join(configDir),
-			expectedPath:  filepath.Join(configDir),
+			envGetpath:   configGetpath,
+			expectedPath: configGetpath,
 		},
 		"env var getpath": {
-			envVarGetPath: filepath.Join(envDir),
-			expectedPath:  filepath.Join(envDir),
+			envGetpath:   envGetpath,
+			expectedPath: envGetpath,
 		},
 		"git config getpath over env var getpath": {
-			gitConfigGetPath: filepath.Join(configDir),
-			envVarGetPath:    filepath.Join(envDir),
-			expectedPath:     filepath.Join(configDir),
+			gitConfigGetpath: configGetpath,
+			envGetpath:       envGetpath,
+			expectedPath:     configGetpath,
 		},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			// Empty GETPATH for tests
-			git.Config(config.Global, config.Unset(GitConfigKey, ""))
-			os.Setenv("GETPATH", "")
-
-			if c.gitConfigGetPath != "" {
-				git.Config(config.Global, config.Entry(GitConfigKey, c.gitConfigGetPath))
-			}
-
-			if c.envVarGetPath != "" {
-				os.Setenv("GETPATH", c.envVarGetPath)
-			}
+			setupEnv(c.gitConfigGetpath, c.envGetpath)
 
 			path := configPath()
 			if path != c.expectedPath {
@@ -237,8 +207,7 @@ func TestDirectory(t *testing.T) {
 }
 
 func TestClone(t *testing.T) {
-	dir, _ := os.MkdirTemp("", "git-get-")
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cases := map[string]struct {
 		url          *url.URL
@@ -300,5 +269,42 @@ func TestClone(t *testing.T) {
 				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.expectedPath)
 			}
 		})
+	}
+}
+
+// gitConfigGlobalFixture creates a temporary folder and .gitconfig to be used as the global
+// Git config for tests.
+func gitConfigGlobalFixture(t *testing.T) error {
+	// Skip fixture on Windows in CI
+	if os.Getenv("CI") == "true" && runtime.GOOS == "windows" {
+		return nil
+	}
+
+	gitconfig := filepath.Join(t.TempDir(), ".gitconfig")
+
+	_, err := os.Create(gitconfig)
+	if err != nil {
+		return fmt.Errorf("unable create .gitconfig: %s", err)
+	}
+
+	err = os.Setenv("GIT_CONFIG_GLOBAL", gitconfig)
+	if err != nil {
+		return fmt.Errorf("unable to set GIT_CONFIG_GLOBAL: %s", err)
+	}
+
+	return nil
+}
+
+// setupEnv unsets both global Git config and environmental GETPATHs, before setting them
+// again if provided to ensure that the test environement is clean.
+func setupEnv(gitConfigGetpath, envGetpath string) {
+	os.Setenv("GETPATH", "")
+	if envGetpath != "" {
+		os.Setenv("GETPATH", envGetpath)
+	}
+
+	git.Config(config.Global, config.Entry(GitConfigKey, ""))
+	if gitConfigGetpath != "" {
+		git.Config(config.Global, config.Entry(GitConfigKey, gitConfigGetpath))
 	}
 }
