@@ -4,16 +4,19 @@
 
 ## Usage
 
-Set a `GITGET_GETPATH` or use the default of `~/src`.
+Set a `GETPATH` or use the default of `~/src`.
 
 ```shell
-export GITGET_GETPATH=~/src
+export GETPATH=~/src
 ```
 
 Get a repository.
 
 ```console
 $ git get github.com/arbourd/git-get
+~/src/github.com/arbourd/git-get
+
+$ git get https://github.com/arbourd/git-get.git
 ~/src/github.com/arbourd/git-get
 
 $ git get git@github.com:arbourd/git-get.git
