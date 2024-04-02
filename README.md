@@ -4,7 +4,13 @@
 
 ## Usage
 
-Set a `GETPATH` or use the default of `~/src`.
+Set a `GETPATH` with `git config` or use the default of `~/src`
+
+```console
+$ git config --global get.path "~/src"
+```
+
+The environmental variable `$GETPATH` may also be set:
 
 ```shell
 export GETPATH=~/src
