@@ -4,19 +4,7 @@
 
 ## Usage
 
-Set a `GETPATH` with `git config` or use the default of `~/src`
-
-```console
-$ git config --global get.path "~/src"
-```
-
-The environmental variable `$GETPATH` may also be set:
-
-```shell
-export GETPATH=~/src
-```
-
-Get a repository.
+Get a repository to `~/src`
 
 ```console
 $ git get github.com/arbourd/git-get
@@ -27,6 +15,18 @@ $ git get https://github.com/arbourd/git-get.git
 
 $ git get git@github.com:arbourd/git-get.git
 ~/src/github.com/arbourd/git-get
+```
+
+Set a custom `GETPATH` with `git config`.
+
+```console
+$ git config --global get.path "~/dev"
+```
+
+Set a custom `GETPATH` with the environmental variable `$GETPATH`.
+
+```shell
+export GETPATH=~/dev
 ```
 
 ### Using SSH as the default

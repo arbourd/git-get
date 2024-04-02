@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
+      - run: git config url.https://github.com/.insteadOf ssh://git@github.com/
 
       - uses: actions/setup-go@v5
         with:
