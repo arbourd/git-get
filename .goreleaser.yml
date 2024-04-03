@@ -34,7 +34,7 @@ brews:
     conflicts:
       - git-extras
 
-    folder: Formula
+    directory: Formula
 
     repository:
       owner: arbourd
