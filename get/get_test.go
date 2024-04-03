@@ -317,7 +317,7 @@ func setupEnv(gitConfigGetpath, envGetpath string) {
 		os.Setenv("GETPATH", envGetpath)
 	}
 
-	git.Config(config.Global, config.Entry(GitConfigKey, ""))
+	git.Config(config.Global, config.Unset(GitConfigKey, ""))
 	if gitConfigGetpath != "" {
 		git.Config(config.Global, config.Entry(GitConfigKey, gitConfigGetpath))
 	}
