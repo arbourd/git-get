@@ -40,6 +40,7 @@ func Path() (string, error) {
 
 		p = filepath.Join(dir, p[1:])
 	}
+	p = os.ExpandEnv(p)
 
 	if !filepath.IsAbs(p) {
 		return "", fmt.Errorf("GETPATH is not an absolute path: \"%s\"", p)
