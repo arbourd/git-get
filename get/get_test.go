@@ -26,6 +26,12 @@ func TestPath(t *testing.T) {
 		t.Fatalf("unable to setup test fixture: %s", err)
 	}
 
+	homeVar := "HOME"
+	if runtime.GOOS == "windows" {
+		homeVar = "USERPROFILE"
+	}
+	getpathWithVar := filepath.FromSlash(fmt.Sprintf("$%s/src", homeVar))
+
 	cases := map[string]struct {
 		gitConfigGetpath string
 		envGetpath       string
@@ -39,9 +45,17 @@ func TestPath(t *testing.T) {
 			gitConfigGetpath: configGetpath,
 			expectedPath:     configGetpath,
 		},
+		"git config getpath with variable": {
+			gitConfigGetpath: getpathWithVar,
+			expectedPath:     defaultGetpath,
+		},
 		"env var getpath": {
 			envGetpath:   envGetpath,
 			expectedPath: envGetpath,
+		},
+		"env var getpath with variable": {
+			gitConfigGetpath: getpathWithVar,
+			expectedPath:     defaultGetpath,
 		},
 		"git config getpath overrides env var getpath": {
 			gitConfigGetpath: configGetpath,
