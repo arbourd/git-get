@@ -1,10 +1,10 @@
 # git-get
 
-`git-get` clones repositories to your `GETPATH` in the same fashion as `go get`.
+`git get` clones repositories to your `GETPATH` in the same fashion as `go get`.
 
 ## Usage
 
-Get a repository to `~/src`
+Get a repository to the default `GETPATH` `~/src`
 
 ```console
 $ git get github.com/arbourd/git-get
@@ -21,12 +21,18 @@ Set a custom `GETPATH` with `git config`.
 
 ```console
 $ git config --global get.path "~/dev"
+
+$ git get github.com/arbourd/git-get
+~/dev/github.com/arbourd/git-get
 ```
 
 Set a custom `GETPATH` with the environmental variable `$GETPATH`.
 
-```shell
-export GETPATH=~/dev
+```console
+$ export GETPATH=~/dev
+
+$ git get github.com/arbourd/git-get
+~/dev/github.com/arbourd/git-get
 ```
 
 ### Using SSH as the default
