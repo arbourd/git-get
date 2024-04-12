@@ -132,7 +132,7 @@ func Clone(u *url.URL, dir string) (string, error) {
 
 		_, err = git.Clone(clone.Repository(u.String()), clone.Directory(dir))
 		if err != nil {
-			return "", fmt.Errorf("git clone: %s", err)
+			return "", fmt.Errorf("git clone: %w", err)
 		}
 	}
 

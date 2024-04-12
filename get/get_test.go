@@ -298,12 +298,12 @@ func gitConfigGlobalFixture(t *testing.T) error {
 
 	_, err := os.Create(gitconfig)
 	if err != nil {
-		return fmt.Errorf("unable create .gitconfig: %s", err)
+		return fmt.Errorf("unable create .gitconfig: %w", err)
 	}
 
 	err = os.Setenv("GIT_CONFIG_GLOBAL", gitconfig)
 	if err != nil {
-		return fmt.Errorf("unable to set GIT_CONFIG_GLOBAL: %s", err)
+		return fmt.Errorf("unable to set GIT_CONFIG_GLOBAL: %w", err)
 	}
 
 	return nil
