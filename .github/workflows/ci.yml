@@ -47,7 +47,7 @@ jobs:
           cache: true
       - run: go mod download
 
-      - uses: goreleaser/goreleaser-action@v5
+      - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           install-only: true
