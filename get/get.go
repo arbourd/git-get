@@ -48,7 +48,7 @@ func Path() (string, error) {
 
 	// Make GETPATH directory if it does not exist
 	if _, err := os.Stat(p); os.IsNotExist(err) {
-		err := os.MkdirAll(p, os.ModePerm)
+		err := os.MkdirAll(p, 0755)
 		if err != nil {
 			return "", err
 		}
@@ -113,7 +113,9 @@ func Clone(u *url.URL, dir string) (string, error) {
 		g.AddOptions(u.String())
 	})
 	if err != nil {
-		return "", fmt.Errorf("git repository not found: %s", u.String())
+		sanitized := *u
+		sanitized.User = nil
+		return "", fmt.Errorf("git repository not found: %s", sanitized.String())
 	}
 
 	parentdir, _ := filepath.Split(dir)
@@ -125,7 +127,7 @@ func Clone(u *url.URL, dir string) (string, error) {
 			return "", fmt.Errorf("%s exists but %s does not", dir, gitdir)
 		}
 
-		err := os.MkdirAll(parentdir, os.ModePerm)
+		err := os.MkdirAll(parentdir, 0755)
 		if err != nil {
 			return "", err
 		}
