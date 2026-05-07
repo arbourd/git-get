@@ -82,6 +82,19 @@ func TestPath(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("tilde introduced by env var expansion", func(t *testing.T) {
+		t.Setenv("TEST_GETPATH", "~/src")
+		setupEnv(t, "", "$TEST_GETPATH")
+
+		path, err := Path()
+		if err != nil {
+			t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
+		}
+		if path != defaultGetpath {
+			t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, defaultGetpath)
+		}
+	})
 }
 
 func TestConfigPath(t *testing.T) {
@@ -212,7 +225,10 @@ func TestDirectory(t *testing.T) {
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			dir := Directory(c.url)
+			dir, err := Directory(c.url)
+			if err != nil {
+				t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
+			}
 			if dir != filepath.Clean(c.want) {
 				t.Fatalf("unexpected directory string:\n\t(GOT): %#v\n\t(WNT): %#v", dir, filepath.Clean(c.want))
 			}

@@ -21,7 +21,7 @@ func main() {
 func run() (string, error) {
 	path, err := get.Path()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolving GETPATH: %w", err)
 	}
 
 	args := os.Args[1:]
@@ -32,9 +32,14 @@ func run() (string, error) {
 
 	url, err := get.ParseURL(remote)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse repository url: \"%s\"", remote)
+		return "", fmt.Errorf("unable to parse repository url \"%s\": %w", remote, err)
 	}
 
-	dir := filepath.Join(path, get.Directory(url))
+	relDir, err := get.Directory(url)
+	if err != nil {
+		return "", fmt.Errorf("unable to determine directory for url \"%s\": %w", remote, err)
+	}
+
+	dir := filepath.Join(path, relDir)
 	return get.Clone(url, dir)
 }

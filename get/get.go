@@ -32,15 +32,16 @@ const (
 func Path() (string, error) {
 	p := configPath()
 
+	p = os.ExpandEnv(p)
+
 	if strings.HasPrefix(p, "~") {
 		dir, err := os.UserHomeDir()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("detecting home directory: %w", err)
 		}
 
 		p = filepath.Join(dir, p[1:])
 	}
-	p = os.ExpandEnv(p)
 
 	if !filepath.IsAbs(p) {
 		return "", fmt.Errorf("GETPATH is not an absolute path: \"%s\"", p)
@@ -50,7 +51,7 @@ func Path() (string, error) {
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		err := os.MkdirAll(p, 0755)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("creating GETPATH directory: %w", err)
 		}
 	}
 
@@ -100,10 +101,13 @@ func ParseURL(remote string) (*url.URL, error) {
 }
 
 // Directory parses the directory where the cloned repository will be downloaded from the URL
-func Directory(u *url.URL) string {
-	dir, _ := url.JoinPath(u.Host, u.Path)
+func Directory(u *url.URL) (string, error) {
+	dir, err := url.JoinPath(u.Host, u.Path)
+	if err != nil {
+		return "", fmt.Errorf("joining path: %w", err)
+	}
 	dir = strings.TrimSuffix(dir, ".git")
-	return filepath.Clean(dir)
+	return filepath.Clean(dir), nil
 }
 
 // Clone clones the remote repository to the GETPATH and returns the directory
@@ -129,7 +133,7 @@ func Clone(u *url.URL, dir string) (string, error) {
 
 		err := os.MkdirAll(parentdir, 0755)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("creating clone directory: %w", err)
 		}
 
 		_, err = git.Clone(clone.Repository(u.String()), clone.Directory(dir))
