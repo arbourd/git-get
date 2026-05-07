@@ -26,14 +26,19 @@ $ git get github.com/arbourd/git-get
 ~/dev/github.com/arbourd/git-get
 ```
 
-Set a custom `GETPATH` with the environmental variable `$GETPATH`.
+Set a custom `GETPATH` with the environmental variable `$GETPATH`. 
 
 ```console
 $ export GETPATH=~/dev
 
 $ git get github.com/arbourd/git-get
 ~/dev/github.com/arbourd/git-get
+
+$ GETPATH=~/corp-dev git get github.com/arbourd/git-get
+~/corp-dev/github.com/arbourd/git-get
 ```
+
+The environmental variable takes precedence over the `get.path` Git config.
 
 ### Using SSH as the default
 

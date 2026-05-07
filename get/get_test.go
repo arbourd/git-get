@@ -57,10 +57,10 @@ func TestPath(t *testing.T) {
 			gitConfigGetpath: getpathWithVar,
 			expectedPath:     defaultGetpath,
 		},
-		"git config getpath overrides env var getpath": {
+		"env var getpath overrides git config getpath": {
 			gitConfigGetpath: configGetpath,
 			envGetpath:       envGetpath,
-			expectedPath:     configGetpath,
+			expectedPath:     envGetpath,
 		},
 		"relative GETPATH": {
 			envGetpath: "../test",
@@ -108,10 +108,10 @@ func TestConfigPath(t *testing.T) {
 			envGetpath:   envGetpath,
 			expectedPath: envGetpath,
 		},
-		"git config getpath over env var getpath": {
+		"env var getpath over git config getpath": {
 			gitConfigGetpath: configGetpath,
 			envGetpath:       envGetpath,
-			expectedPath:     configGetpath,
+			expectedPath:     envGetpath,
 		},
 	}
 

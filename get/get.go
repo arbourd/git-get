@@ -59,12 +59,12 @@ func Path() (string, error) {
 
 // configPath returns the GETPATH from the config, environment or default
 func configPath() string {
-	out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
-	if getpath := strings.TrimSpace(out); getpath != "" {
+	if getpath := os.Getenv(EnvKey); getpath != "" {
 		return getpath
 	}
 
-	if getpath := os.Getenv(EnvKey); getpath != "" {
+	out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
+	if getpath := strings.TrimSpace(out); getpath != "" {
 		return getpath
 	}
 
