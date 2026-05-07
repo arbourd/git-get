@@ -12,7 +12,7 @@ import (
 	"github.com/ldez/go-git-cmd-wrapper/v2/git"
 )
 
-func TestPath(t *testing.T) {
+func TestAbsolutePath(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatalf("unable to detect homedir: %s", err)
@@ -26,11 +26,11 @@ func TestPath(t *testing.T) {
 		t.Fatalf("unable to setup test fixture: %s", err)
 	}
 
-	homeVar := "HOME"
+	homeVar := "$HOME"
 	if runtime.GOOS == "windows" {
-		homeVar = "USERPROFILE"
+		homeVar = "$USERPROFILE"
 	}
-	getpathWithVar := filepath.FromSlash(fmt.Sprintf("$%s/src", homeVar))
+	getpathWithVar := filepath.Join(homeVar, "src")
 
 	cases := map[string]struct {
 		gitConfigGetpath string
@@ -72,7 +72,7 @@ func TestPath(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			setupEnv(t, c.gitConfigGetpath, c.envGetpath)
 
-			path, err := Path()
+			path, err := AbsolutePath()
 			if err != nil && !c.wantErr {
 				t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
 			} else if err == nil && c.wantErr {
@@ -87,7 +87,7 @@ func TestPath(t *testing.T) {
 		t.Setenv("TEST_GETPATH", "~/src")
 		setupEnv(t, "", "$TEST_GETPATH")
 
-		path, err := Path()
+		path, err := AbsolutePath()
 		if err != nil {
 			t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
 		}
@@ -97,44 +97,34 @@ func TestPath(t *testing.T) {
 	})
 }
 
-func TestConfigPath(t *testing.T) {
-	configGetpath := t.TempDir()
-	envGetpath := t.TempDir()
-	err := gitConfigGlobalFixture(t)
+func TestShortPath(t *testing.T) {
+	home, err := os.UserHomeDir()
 	if err != nil {
-		t.Fatalf("unable to setup test fixture: %s", err)
+		t.Fatalf("unable to get home dir: %v", err)
 	}
 
 	cases := map[string]struct {
-		gitConfigGetpath string
-		envGetpath       string
-		expectedPath     string
+		path string
+		want string
 	}{
-		"default": {
-			expectedPath: "~/src",
+		"subdir of home": {
+			path: filepath.Join(home, "src"),
+			want: filepath.Join(defaultPrefix, "src"),
 		},
-		"git config getpath": {
-			gitConfigGetpath: configGetpath,
-			expectedPath:     configGetpath,
+		"home itself": {
+			path: home,
+			want: defaultPrefix,
 		},
-		"env var getpath": {
-			envGetpath:   envGetpath,
-			expectedPath: envGetpath,
-		},
-		"env var getpath over git config getpath": {
-			gitConfigGetpath: configGetpath,
-			envGetpath:       envGetpath,
-			expectedPath:     envGetpath,
+		"homeless": {
+			path: "/root/dev",
+			want: "/root/dev",
 		},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			setupEnv(t, c.gitConfigGetpath, c.envGetpath)
-
-			path := configPath()
-			if path != c.expectedPath {
-				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.expectedPath)
+			if got := ShortPath(c.path); got != c.want {
+				t.Fatalf("unexpected ShortPath(%q):\n\t(GOT): %q\n\t(WNT): %q", c.path, got, c.want)
 			}
 		})
 	}
@@ -265,9 +255,9 @@ func TestClone(t *testing.T) {
 			url: &url.URL{
 				Scheme: "https",
 				Host:   "gitlab.com",
-				Path:   "gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin",
+				Path:   "gitlab-org/dev-subdepartment/ai-dev-promptcollection",
 			},
-			expectedPath: filepath.Join(dir, "gitlab.com/gitlab-org/dev-subdepartment/ai-experimentation-chrome-plugin"),
+			expectedPath: filepath.Join(dir, "gitlab.com/gitlab-org/dev-subdepartment/ai-dev-promptcollection"),
 		},
 		"invalid url": {
 			url: &url.URL{
@@ -302,27 +292,15 @@ func TestClone(t *testing.T) {
 	}
 }
 
-// gitConfigGlobalFixture creates a temporary folder and .gitconfig to be used as the global
-// Git config for tests.
 func gitConfigGlobalFixture(t *testing.T) error {
-	// Skip fixture on Windows in CI
-	if os.Getenv("CI") == "true" && runtime.GOOS == "windows" {
-		return nil
-	}
-
+	t.Helper()
 	gitconfig := filepath.Join(t.TempDir(), ".gitconfig")
-
-	_, err := os.Create(gitconfig)
+	f, err := os.Create(gitconfig)
 	if err != nil {
-		return fmt.Errorf("unable create .gitconfig: %w", err)
+		return fmt.Errorf("unable to create .gitconfig: %w", err)
 	}
-
-	err = os.Setenv("GIT_CONFIG_GLOBAL", gitconfig)
-	if err != nil {
-		return fmt.Errorf("unable to set GIT_CONFIG_GLOBAL: %w", err)
-	}
-	t.Cleanup(func() { os.Unsetenv("GIT_CONFIG_GLOBAL") })
-
+	defer f.Close()
+	t.Setenv("GIT_CONFIG_GLOBAL", gitconfig)
 	return nil
 }
 

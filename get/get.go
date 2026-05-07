@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	// defaultGetpath is the default path where repositories will be cloned if not configured
-	defaultGetpath = "~/src"
+	// defaultGetpath is the default GETPATH used when none is specified
+	defaultGetpath = defaultPrefix + "/src"
+	defaultPrefix  = "~"
 
 	// defaultScheme is the scheme used when a URL is provided without one
 	defaultScheme = "https"
@@ -28,48 +29,49 @@ const (
 	EnvKey = "GETPATH"
 )
 
-// Path returns the absolute GETPATH
-func Path() (string, error) {
-	p := configPath()
+// AbsolutePath returns the absolute GETPATH, resolving env vars and ~ expansion.
+// Precedence: GETPATH env var > get.path git config > default.
+func AbsolutePath() (string, error) {
+	p := os.Getenv(EnvKey)
+	if p == "" {
+		out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
+		p = strings.TrimSpace(out)
+	}
+	if p == "" {
+		p = defaultGetpath
+	}
 
 	p = os.ExpandEnv(p)
-
 	if strings.HasPrefix(p, "~") {
-		dir, err := os.UserHomeDir()
+		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("detecting home directory: %w", err)
 		}
-
-		p = filepath.Join(dir, p[1:])
+		p = filepath.Join(home, p[1:])
 	}
 
 	if !filepath.IsAbs(p) {
-		return "", fmt.Errorf("GETPATH is not an absolute path: \"%s\"", p)
+		return "", fmt.Errorf("GETPATH is not an absolute path: %q", p)
 	}
-
-	// Make GETPATH directory if it does not exist
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		err := os.MkdirAll(p, 0755)
-		if err != nil {
-			return "", fmt.Errorf("creating GETPATH directory: %w", err)
-		}
-	}
-
 	return p, nil
 }
 
-// configPath returns the GETPATH from the config, environment or default
-func configPath() string {
-	if getpath := os.Getenv(EnvKey); getpath != "" {
-		return getpath
+// ShortPath returns a shortened version of the given path
+func ShortPath(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
 	}
 
-	out, _ := git.Config(config.Global, config.Get(GitConfigKey, ""))
-	if getpath := strings.TrimSpace(out); getpath != "" {
-		return getpath
+	rel, err := filepath.Rel(home, path)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return path
 	}
 
-	return defaultGetpath
+	if rel == "." {
+		return defaultPrefix
+	}
+	return filepath.Join(defaultPrefix, rel)
 }
 
 var scpSyntaxRe = regexp.MustCompile(`^(\w+)@([\w.-]+):(.*)$`)
@@ -91,7 +93,7 @@ func ParseURL(remote string) (*url.URL, error) {
 
 	u, err := url.Parse(remote)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing url: %w", err)
 	}
 
 	if len(u.Scheme) == 0 {
@@ -119,16 +121,14 @@ func Clone(u *url.URL, dir string) (string, error) {
 	if err != nil {
 		sanitized := *u
 		sanitized.User = nil
-		return "", fmt.Errorf("git repository not found: %s", sanitized.String())
+		return "", fmt.Errorf("git repository not found at %s: %w", sanitized.String(), err)
 	}
 
 	parentdir, _ := filepath.Split(dir)
-	gitdir := filepath.Join(dir, ".git")
 
-	if _, err := os.Stat(gitdir); os.IsNotExist(err) {
-		// Check if root folder exists, even though the .git directory does not
+	if !isGitRepository(dir) {
 		if _, err := os.Stat(dir); !os.IsNotExist(err) {
-			return "", fmt.Errorf("%s exists but %s does not", dir, gitdir)
+			return "", fmt.Errorf("%s exists but %s does not", dir, filepath.Join(dir, ".git"))
 		}
 
 		err := os.MkdirAll(parentdir, 0755)
@@ -143,4 +143,9 @@ func Clone(u *url.URL, dir string) (string, error) {
 	}
 
 	return dir, nil
+}
+
+func isGitRepository(path string) bool {
+	_, err := os.Stat(filepath.Join(path, ".git"))
+	return err == nil
 }
