@@ -70,7 +70,7 @@ func TestPath(t *testing.T) {
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			setupEnv(c.gitConfigGetpath, c.envGetpath)
+			setupEnv(t, c.gitConfigGetpath, c.envGetpath)
 
 			path, err := Path()
 			if err != nil && !c.wantErr {
@@ -101,8 +101,8 @@ func TestConfigPath(t *testing.T) {
 			expectedPath: "~/src",
 		},
 		"git config getpath": {
-			envGetpath:   configGetpath,
-			expectedPath: configGetpath,
+			gitConfigGetpath: configGetpath,
+			expectedPath:     configGetpath,
 		},
 		"env var getpath": {
 			envGetpath:   envGetpath,
@@ -117,7 +117,7 @@ func TestConfigPath(t *testing.T) {
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			setupEnv(c.gitConfigGetpath, c.envGetpath)
+			setupEnv(t, c.gitConfigGetpath, c.envGetpath)
 
 			path := configPath()
 			if path != c.expectedPath {
@@ -305,20 +305,21 @@ func gitConfigGlobalFixture(t *testing.T) error {
 	if err != nil {
 		return fmt.Errorf("unable to set GIT_CONFIG_GLOBAL: %w", err)
 	}
+	t.Cleanup(func() { os.Unsetenv("GIT_CONFIG_GLOBAL") })
 
 	return nil
 }
 
 // setupEnv unsets both global Git config and environmental GETPATHs, before setting them
 // again if provided to ensure that the test environement is clean.
-func setupEnv(gitConfigGetpath, envGetpath string) {
-	os.Setenv("GETPATH", "")
-	if envGetpath != "" {
-		os.Setenv("GETPATH", envGetpath)
-	}
+func setupEnv(t *testing.T, gitConfigGetpath, envGetpath string) {
+	t.Helper()
+	t.Setenv("GETPATH", envGetpath)
 
-	git.Config(config.Global, config.Unset(GitConfigKey, ""))
+	_, _ = git.Config(config.Global, config.Unset(GitConfigKey, ""))
 	if gitConfigGetpath != "" {
-		git.Config(config.Global, config.Entry(GitConfigKey, gitConfigGetpath))
+		if _, err := git.Config(config.Global, config.Entry(GitConfigKey, gitConfigGetpath)); err != nil {
+			t.Fatalf("unable to set git config: %s", err)
+		}
 	}
 }
