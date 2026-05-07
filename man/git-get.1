@@ -1,0 +1,84 @@
+.TH GIT-GET 1 "2026-05-07" "git-get" "User Commands"
+.SH NAME
+git-get \- clone a git repository to GETPATH
+.SH SYNOPSIS
+.B git-get
+.RI [ options ]
+.I repository
+.SH DESCRIPTION
+.B git-get
+clones a git repository to a structured path under
+.B GETPATH
+(default:
+.IR ~/src ),
+mirroring the repository's URL as a directory hierarchy in the style of
+.BR go-get (1).
+For example,
+.I github.com/arbourd/git-get
+is cloned to
+.IR $GETPATH/github.com/arbourd/git-get .
+.PP
+If the destination already contains a
+.I .git
+directory,
+.B git-get
+exits without re-cloning.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Print usage information and exit.
+.TP
+.BR \-v ", " \-\-version
+Print the version and exit.
+.SH ARGUMENTS
+.TP
+.I repository
+The repository to clone. Accepted forms:
+.RS
+.IP \(bu 4
+Bare path:
+.I github.com/user/repo
+.IP \(bu 4
+HTTPS URL:
+.I https://github.com/user/repo.git
+.IP \(bu 4
+SSH URL:
+.I git@github.com:user/repo.git
+.RE
+.SH ENVIRONMENT
+.TP
+.B GETPATH
+Root directory for cloned repositories. Takes precedence over
+.BR get.path .
+.SH CONFIGURATION
+.TP
+.B get.path
+Git config key for the root directory. Set with:
+.RS
+.EX
+git config \-\-global get.path ~/dev
+.EE
+.RE
+If neither
+.B GETPATH
+nor
+.B get.path
+is set, the default is
+.IR ~/src .
+.SH EXAMPLES
+.EX
+$ git get github.com/arbourd/git-get
+~/src/github.com/arbourd/git-get
+
+$ git get https://github.com/arbourd/git-get.git
+~/src/github.com/arbourd/git-get
+
+$ git get git@github.com:arbourd/git-get.git
+~/src/github.com/arbourd/git-get
+
+$ GETPATH=~/corp git get github.com/org/repo
+~/corp/github.com/org/repo
+.EE
+.SH SEE ALSO
+.BR git (1),
+.BR git-clone (1)

@@ -18,6 +18,9 @@ checksum:
 
 archives:
   - name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - completions/*
+      - man/*
     format_overrides:
       - goos: windows
         formats:
@@ -27,6 +30,13 @@ brews:
   - name: git-get
     description: Go gets your code
     homepage: https://github.com/arbourd/git-get
+
+    install: |
+      bin.install "git-get"
+      man1.install "man/git-get.1"
+      bash_completion.install "completions/git-get.bash" => "git-get"
+      zsh_completion.install "completions/git-get.zsh" => "_git_get"
+      fish_completion.install "completions/git-get.fish"
 
     test: |
       repo = "github.com/arbourd/git-get"

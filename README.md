@@ -63,3 +63,31 @@ Install with `go install`.
 ```console
 $ go install github.com/arbourd/git-get@latest
 ```
+
+### Autocompletion
+
+Homebrew installs shell completions automatically. For other installs, completion scripts are available in the `completions/` directory of each [release](https://github.com/arbourd/git-get/releases).
+
+**Fish**
+
+```console
+$ cp completions/git-get.fish ~/.config/fish/completions/git-get.fish
+```
+
+**Bash** — add to `~/.bashrc` to persist.
+
+```console
+$ source completions/git-get.bash
+```
+
+**Zsh** — copy to a directory in `$fpath`.
+
+```console
+$ cp completions/git-get.zsh "${fpath[1]}/_git_get"
+```
+
+**PowerShell** — dot-source in `$PROFILE` to persist.
+
+```console
+> . completions\git-get.ps1
+```
