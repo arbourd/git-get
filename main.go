@@ -43,6 +43,7 @@ func run(args []string, stdout io.Writer) error {
 		fmt.Fprintln(stdout, Version)
 		return nil
 	case "--complete":
+		// Internal protocol used by shell completion scripts (completions/); not a user-facing flag.
 		prefix := ""
 		if len(args) > 1 {
 			prefix = args[1]
