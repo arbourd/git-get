@@ -1,7 +1,9 @@
 package get
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -114,7 +116,15 @@ func Directory(u *url.URL) (string, error) {
 
 // Clone clones the remote repository to the GETPATH and returns the directory
 func Clone(u *url.URL, dir string) (string, error) {
-	// Check if git remote exists
+	if isGitRepository(dir) {
+		return dir, nil
+	}
+
+	if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("%s exists but %s does not", dir, filepath.Join(dir, ".git"))
+	}
+
+	// Check if git remote exists before creating any directories
 	_, err := git.Raw("ls-remote", func(g *types.Cmd) {
 		g.AddOptions(u.String())
 	})
@@ -125,21 +135,12 @@ func Clone(u *url.URL, dir string) (string, error) {
 	}
 
 	parentdir, _ := filepath.Split(dir)
+	if err := os.MkdirAll(parentdir, 0755); err != nil {
+		return "", fmt.Errorf("creating clone directory: %w", err)
+	}
 
-	if !isGitRepository(dir) {
-		if _, err := os.Stat(dir); !os.IsNotExist(err) {
-			return "", fmt.Errorf("%s exists but %s does not", dir, filepath.Join(dir, ".git"))
-		}
-
-		err := os.MkdirAll(parentdir, 0755)
-		if err != nil {
-			return "", fmt.Errorf("creating clone directory: %w", err)
-		}
-
-		_, err = git.Clone(clone.Repository(u.String()), clone.Directory(dir))
-		if err != nil {
-			return "", fmt.Errorf("git clone: %w", err)
-		}
+	if _, err = git.Clone(clone.Repository(u.String()), clone.Directory(dir)); err != nil {
+		return "", fmt.Errorf("git clone: %w", err)
 	}
 
 	return dir, nil
