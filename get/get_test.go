@@ -66,6 +66,10 @@ func TestAbsolutePath(t *testing.T) {
 			envGetpath: "../test",
 			wantErr:    true,
 		},
+		"tilde-user GETPATH": {
+			envGetpath: "~otheruser/src",
+			wantErr:    true,
+		},
 	}
 
 	for name, c := range cases {
