@@ -44,7 +44,7 @@ func AbsolutePath() (string, error) {
 	}
 
 	p = os.ExpandEnv(p)
-	if strings.HasPrefix(p, "~") {
+	if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, "~"+string(filepath.Separator)) {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("detecting home directory: %w", err)
