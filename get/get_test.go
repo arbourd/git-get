@@ -227,6 +227,9 @@ func TestDirectory(t *testing.T) {
 }
 
 func TestClone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network test")
+	}
 	dir := t.TempDir()
 
 	cases := map[string]struct {
