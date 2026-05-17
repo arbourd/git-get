@@ -120,8 +120,10 @@ func Clone(u *url.URL, dir string) (string, error) {
 		return dir, nil
 	}
 
-	if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
+	if _, statErr := os.Stat(dir); statErr == nil {
 		return "", fmt.Errorf("%s exists but %s does not", dir, filepath.Join(dir, ".git"))
+	} else if !errors.Is(statErr, fs.ErrNotExist) {
+		return "", fmt.Errorf("checking directory: %w", statErr)
 	}
 
 	// Check if git remote exists before creating any directories
