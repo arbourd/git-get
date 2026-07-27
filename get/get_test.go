@@ -215,6 +215,14 @@ func TestDirectory(t *testing.T) {
 			},
 			want: "github.com/arbourd/git-get",
 		},
+		"segment starting with dots is not treated as traversal": {
+			url: &url.URL{
+				Scheme: "https",
+				Host:   "example.com",
+				Path:   "..cache/repo",
+			},
+			want: "example.com/..cache/repo",
+		},
 	}
 
 	for name, c := range cases {
@@ -225,6 +233,42 @@ func TestDirectory(t *testing.T) {
 			}
 			if dir != filepath.Clean(c.want) {
 				t.Fatalf("unexpected directory string:\n\t(GOT): %#v\n\t(WNT): %#v", dir, filepath.Clean(c.want))
+			}
+		})
+	}
+}
+
+// TestDirectoryNeverEscapes guards the invariant documented in AGENTS.md: Directory's
+// result must always be safe to join onto GETPATH. It exercises adversarial host/path
+// combinations that a future change to Directory's internals (e.g. dropping url.JoinPath's
+// anchoring in favor of naive concatenation) could turn into a real path escape.
+func TestDirectoryNeverEscapes(t *testing.T) {
+	cases := map[string]struct {
+		url *url.URL
+	}{
+		"traversal via path": {
+			url: &url.URL{Scheme: "https", Host: "example.com", Path: "../../../etc/passwd"},
+		},
+		"traversal via host": {
+			url: &url.URL{Scheme: "ssh", Host: "..", Path: "/../../etc/passwd"},
+		},
+		"traversal split across host and path": {
+			url: &url.URL{Scheme: "https", Host: "evil.com/../../etc", Path: "passwd"},
+		},
+		"empty host and path": {
+			url: &url.URL{Scheme: "https", Host: "", Path: ""},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir, err := Directory(c.url)
+			if err != nil {
+				// Rejecting the input outright also satisfies the invariant.
+				return
+			}
+			if !filepath.IsLocal(dir) {
+				t.Fatalf("Directory(%+v) returned non-local directory %q", c.url, dir)
 			}
 		})
 	}

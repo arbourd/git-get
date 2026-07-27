@@ -33,8 +33,9 @@ run() → clone() → AbsolutePath() → ParseURL() → Directory() → Clone()
 
 - `AbsolutePath` — resolves GETPATH: `$GETPATH` > `get.path` git config > `~/src`
 - `ParseURL` — normalizes HTTPS, SSH, and SCP (`git@host:path`) forms
-- `Directory` — strips `.git` suffix, returns `host/path`
+- `Directory` — strips `.git` suffix, returns `host/path`; guarantees the result is `filepath.IsLocal` (never escapes upward via `..`) so any GETPATH it's joined to stays contained
 - `Clone` — three cases: `.git` present → return dir; dir exists without `.git` → error; dir absent → ls-remote, mkdir, clone
+- `ShortPath` — inverse of `AbsolutePath`'s `~` expansion; used by `main.go` to render GETPATH in usage output
 
 ## Hard constraints
 
@@ -44,7 +45,7 @@ run() → clone() → AbsolutePath() → ParseURL() → Directory() → Clone()
 
 **Error handling:** `fmt.Errorf("context: %w", err)`. Set `url.User = nil` before formatting any URL into an error string.
 
-**Not-exist checks:** `errors.Is(err, fs.ErrNotExist)` — not `os.IsNotExist` (deprecated). Existing inconsistency between packages should be fixed toward `errors.Is`.
+**Not-exist checks:** `errors.Is(err, fs.ErrNotExist)` — not `os.IsNotExist` (deprecated).
 
 **Tilde expansion:** restricted to `~/` and bare `~` only. Never expand `~otheruser`.
 

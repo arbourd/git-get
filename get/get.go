@@ -104,14 +104,21 @@ func ParseURL(remote string) (*url.URL, error) {
 	return u, nil
 }
 
-// Directory parses the directory where the cloned repository will be downloaded from the URL
+// Directory parses the directory where the cloned repository will be downloaded from the URL.
+// The returned directory is always local (never escapes upward via ".."), so any GETPATH it is
+// joined to remains safely contained.
 func Directory(u *url.URL) (string, error) {
 	dir, err := url.JoinPath(u.Host, u.Path)
 	if err != nil {
 		return "", fmt.Errorf("joining path: %w", err)
 	}
 	dir = strings.TrimSuffix(dir, ".git")
-	return filepath.Clean(dir), nil
+	dir = filepath.Clean(dir)
+
+	if !filepath.IsLocal(dir) {
+		return "", fmt.Errorf("directory %q escapes GETPATH", dir)
+	}
+	return dir, nil
 }
 
 // Clone clones the remote repository to the GETPATH and returns the directory
