@@ -40,7 +40,7 @@ func run(args []string, stdout io.Writer) error {
 		fmt.Fprintln(stdout, buildUsage())
 		return nil
 	case "--version", "-v":
-		fmt.Fprintln(stdout, Version)
+		fmt.Fprintf(stdout, "git-get %s\n", Version)
 		return nil
 	case "--complete":
 		// Internal protocol used by shell completion scripts (completions/); not a user-facing flag.

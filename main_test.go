@@ -32,11 +32,11 @@ func TestRun(t *testing.T) {
 		},
 		"--version": {
 			args:       []string{"--version"},
-			wantStdout: "testversion\n",
+			wantStdout: "git-get testversion\n",
 		},
 		"-v": {
 			args:       []string{"-v"},
-			wantStdout: "testversion\n",
+			wantStdout: "git-get testversion\n",
 		},
 		"--complete empty prefix": {
 			args:       []string{"--complete"},
