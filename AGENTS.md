@@ -18,17 +18,20 @@ Version is injected at build time: `go build -ldflags "-X main.Version=$(git rev
 
 ```
 main.go / main_test.go     CLI entry point and tests
+completions_test.go        Bash/fish completion tests (spawn built binary)
 get/get.go                 AbsolutePath, ParseURL, Directory, Clone
 get/complete.go            Shell completion walker
 completions/               Shell completion scripts (bash, fish, zsh, ps1)
 man/git-get.1              Man page (update when adding flags)
 .github/workflows/ci.yml   CI: test on Linux/macOS/Windows, release on tags
+.goreleaser.yml            Release archives + Homebrew formula (ships completions/ and man/)
 ```
 
 ## Data flow
 
 ```
 run() → clone() → AbsolutePath() → ParseURL() → Directory() → Clone()
+run() --complete → Complete() → AbsolutePath()   (walks GETPATH for shell completion)
 ```
 
 - `AbsolutePath` — resolves GETPATH: `$GETPATH` > `get.path` git config > `~/src`
@@ -55,9 +58,10 @@ run() → clone() → AbsolutePath() → ParseURL() → Directory() → Clone()
 
 - Table-driven: `map[string]struct{ ... }` of named cases.
 - `t.TempDir()` for filesystem isolation; `t.Setenv()` for env vars.
-- Always call `gitConfigGlobalFixture(t)` to redirect `GIT_CONFIG_GLOBAL` to a temp file — defined separately in each `_test.go` (Go package boundaries prevent sharing; do not import across packages).
+- Always call `gitConfigGlobalFixture(t)` to redirect `GIT_CONFIG_GLOBAL` to a temp file — defined once per package (`main_test.go`, `get/get_test.go`); other test files in the same package reuse it. Do not import across packages.
 - Guard network tests with `if testing.Short() { t.Skip(...) }`.
-- Completion tests spawn a real binary; it must inherit `GETPATH` and `GIT_CONFIG_GLOBAL` from the test harness.
+- Completion tests (`completions_test.go`) build and spawn a real binary via the bash/fish scripts; `completionEnv` sets `GETPATH`, `HOME`, and `PATH` explicitly and inherits `GIT_CONFIG_GLOBAL`. They skip if the shell is not installed.
+- The `clone ssh github` case needs GitHub SSH auth locally; CI rewrites SSH to HTTPS via `git config url.https://github.com/.insteadOf ssh://git@github.com/`.
 
 ## Do not
 
