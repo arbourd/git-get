@@ -18,8 +18,8 @@ Version is injected at build time: `go build -ldflags "-X main.Version=$(git rev
 
 ```
 main.go / main_test.go     CLI entry point and tests
-completions_test.go        Bash/fish completion tests (spawn built binary)
-get/get.go                 AbsolutePath, ParseURL, Directory, Clone
+completions_test.go        Bash/fish/zsh/pwsh completion tests (spawn built binary)
+get/get.go                 AbsolutePath, ShortPath, ParseURL, Directory, Clone, RedactRemote
 get/complete.go            Shell completion walker
 completions/               Shell completion scripts (bash, fish, zsh, ps1)
 man/git-get.1              Man page (update when adding flags)
@@ -39,14 +39,16 @@ run() --complete → Complete() → AbsolutePath()   (walks GETPATH for shell co
 - `Directory` — strips `.git` suffix, returns `host/path`; guarantees the result is `filepath.IsLocal` (never escapes upward via `..`) so any GETPATH it's joined to stays contained
 - `Clone` — three cases: `.git` present → return dir; dir exists without `.git` → error; dir absent → ls-remote, mkdir, clone
 - `ShortPath` — inverse of `AbsolutePath`'s `~` expansion; used by `main.go` to render GETPATH in usage output
+- `run` parses flags itself: `--complete` first, then `-h`/`--help`/`--version` anywhere, then options. A lone `-v` is the version; with a repository it is `--verbose`. Unknown or duplicate options and extra positionals are errors; `--` ends options.
+- stdout carries only the resulting path (scripts do `cd $(git get …)`); verbose output goes to stderr via `verboseOption` (`Clone`'s `io.Writer`, nil = quiet). Git output is printed after each command finishes, not streamed: the wrapper's executor uses `CombinedOutput`, and streaming would need `exec.Command`.
 
 ## Hard constraints
 
-**Git operations:** use `github.com/ldez/go-git-cmd-wrapper/v2` exclusively. Never use `exec.Command("git", ...)` or build command strings manually.
+**Git operations:** use `github.com/ldez/go-git-cmd-wrapper/v2` exclusively. Never use `exec.Command("git", ...)` or build command strings to execute. (`shellQuote` only formats the verbose log line.)
 
 **Dependencies:** zero new dependencies. The only permitted external module is `github.com/ldez/go-git-cmd-wrapper/v2`.
 
-**Error handling:** `fmt.Errorf("context: %w", err)`. Set `url.User = nil` before formatting any URL into an error string.
+**Error handling:** `fmt.Errorf("context: %w", err)`. Format URLs in errors and verbose logs through `redact()` (drops userinfo except a bare ssh username); raw user input through `get.RedactRemote()`.
 
 **Not-exist checks:** `errors.Is(err, fs.ErrNotExist)` — not `os.IsNotExist` (deprecated).
 
@@ -60,12 +62,12 @@ run() --complete → Complete() → AbsolutePath()   (walks GETPATH for shell co
 - `t.TempDir()` for filesystem isolation; `t.Setenv()` for env vars.
 - Always call `gitConfigGlobalFixture(t)` to redirect `GIT_CONFIG_GLOBAL` to a temp file — defined once per package (`main_test.go`, `get/get_test.go`); other test files in the same package reuse it. Do not import across packages.
 - Guard network tests with `if testing.Short() { t.Skip(...) }`.
-- Completion tests (`completions_test.go`) build and spawn a real binary via the bash/fish scripts; `completionEnv` sets `GETPATH`, `HOME`, and `PATH` explicitly and inherits `GIT_CONFIG_GLOBAL`. They skip if the shell is not installed.
+- Completion tests (`completions_test.go`) build and spawn a real binary via the bash/fish/zsh/pwsh scripts; `completionEnv` sets `GETPATH`, `HOME`, and `PATH` explicitly and inherits `GIT_CONFIG_GLOBAL`. They skip if the shell is not installed.
+- Offline clone tests: map a fake `https://example.test/` to a local `git init --bare` remote with `url.<file://…>.insteadOf` in `GIT_CONFIG_GLOBAL` (see `TestRunVerbose`).
 - The `clone ssh github` case needs GitHub SSH auth locally; CI rewrites SSH to HTTPS via `git config url.https://github.com/.insteadOf ssh://git@github.com/`.
 
 ## Do not
 
-- Use `os.IsNotExist`; use `errors.Is(err, fs.ErrNotExist)`.
 - Skip the `ls-remote` validation in `Clone` — it must fire before any directory is created.
 - Add user-facing flags without updating the usage string in `main.go` and `man/git-get.1`.
 - Expose `--complete`; it is an internal flag consumed by `completions/` scripts only.

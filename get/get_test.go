@@ -1,15 +1,19 @@
 package get
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ldez/go-git-cmd-wrapper/v2/config"
 	"github.com/ldez/go-git-cmd-wrapper/v2/git"
+	"github.com/ldez/go-git-cmd-wrapper/v2/types"
 )
 
 func TestAbsolutePath(t *testing.T) {
@@ -330,7 +334,7 @@ func TestClone(t *testing.T) {
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			path, err := Clone(c.url, c.expectedPath)
+			path, err := Clone(c.url, c.expectedPath, nil)
 
 			if err != nil && !c.wantErr {
 				t.Fatalf("unexpected error:\n\t(GOT): %#v\n\t(WNT): nil", err)
@@ -338,6 +342,73 @@ func TestClone(t *testing.T) {
 				t.Fatalf("expected error:\n\t(GOT): nil\n\t")
 			} else if path != c.expectedPath {
 				t.Fatalf("unexpected path:\n\t(GOT): %#v\n\t(WNT): %#v", path, c.expectedPath)
+			}
+		})
+	}
+}
+
+func TestVerboseOption(t *testing.T) {
+	plain := &url.URL{Scheme: "https", Host: "github.com", Path: "arbourd/git-get"}
+
+	cases := map[string]struct {
+		url     *url.URL
+		extra   []string
+		wantLog string
+	}{
+		"logs command and output": {
+			url:     plain,
+			wantLog: "+ git ls-remote https://github.com/arbourd/git-get\n",
+		},
+		"redacts password": {
+			url:     &url.URL{Scheme: "https", User: url.UserPassword("user", "secret"), Host: "github.com", Path: "arbourd/git-get"},
+			wantLog: "+ git ls-remote https://github.com/arbourd/git-get\n",
+		},
+		"redacts token used as username": {
+			url:     &url.URL{Scheme: "https", User: url.User("ghp_token123"), Host: "github.com", Path: "arbourd/git-get"},
+			wantLog: "+ git ls-remote https://github.com/arbourd/git-get\n",
+		},
+		"keeps ssh username so the logged command matches the one that ran": {
+			url:     &url.URL{Scheme: "ssh", User: url.User("git"), Host: "github.com", Path: "arbourd/git-get"},
+			wantLog: "+ git ls-remote ssh://git@github.com/arbourd/git-get\n",
+		},
+		"redacts ssh password but keeps username": {
+			url:     &url.URL{Scheme: "ssh", User: url.UserPassword("git", "secret"), Host: "github.com", Path: "arbourd/git-get"},
+			wantLog: "+ git ls-remote ssh://github.com/arbourd/git-get\n",
+		},
+		"quotes args with spaces": {
+			url:     plain,
+			extra:   []string{"/Users/me/my src/repo", "it's"},
+			wantLog: "+ git ls-remote https://github.com/arbourd/git-get '/Users/me/my src/repo' 'it'\\''s'\n",
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			var log bytes.Buffer
+			var gotArgs []string
+
+			cmd := types.NewCmd("ls-remote")
+			cmd.Executor = func(_ context.Context, _ string, _ bool, args ...string) (string, error) {
+				gotArgs = args
+				return "fake output\n", nil
+			}
+			cmd.AddOptions(c.url.String())
+			for _, e := range c.extra {
+				cmd.AddOptions(e)
+			}
+
+			verboseOption(&log, c.url)(cmd)
+
+			if _, err := cmd.Exec(context.Background(), "git", false, cmd.Options...); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// the real command must still receive the unredacted URL
+			if len(gotArgs) < 2 || gotArgs[1] != c.url.String() {
+				t.Fatalf("executor received unexpected args: %#v", gotArgs)
+			}
+			if want := c.wantLog + "fake output\n"; log.String() != want {
+				t.Fatalf("unexpected log:\n\t(GOT): %q\n\t(WNT): %q", log.String(), want)
 			}
 		})
 	}
@@ -366,5 +437,115 @@ func setupEnv(t *testing.T, gitConfigGetpath, envGetpath string) {
 		if _, err := git.Config(config.Global, config.Entry(GitConfigKey, gitConfigGetpath)); err != nil {
 			t.Fatalf("unable to set git config: %s", err)
 		}
+	}
+}
+
+// TestCloneVerboseNoCredentialLeak runs the real git against an unreachable
+// host to check that neither git's own output nor our log echoes credentials.
+func TestCloneVerboseNoCredentialLeak(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test that spawns git")
+	}
+
+	cases := map[string]struct {
+		url     *url.URL
+		secrets []string
+	}{
+		"https user and password": {
+			url:     &url.URL{Scheme: "https", User: url.UserPassword("someuser", "s3cret"), Host: "127.0.0.1:1", Path: "o/r"},
+			secrets: []string{"s3cret", "someuser"},
+		},
+		"https token as username": {
+			url:     &url.URL{Scheme: "https", User: url.User("ghp_token123"), Host: "127.0.0.1:1", Path: "o/r"},
+			secrets: []string{"ghp_token123"},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			if err := gitConfigGlobalFixture(t); err != nil {
+				t.Fatalf("setup: %v", err)
+			}
+			t.Setenv("GIT_TERMINAL_PROMPT", "0")
+
+			var log bytes.Buffer
+			_, err := Clone(c.url, filepath.Join(t.TempDir(), "o", "r"), &log)
+			if err == nil {
+				t.Fatal("expected error cloning from an unreachable host")
+			}
+
+			t.Logf("log:\n%s", log.String())
+			for _, s := range c.secrets {
+				if bytes.Contains(log.Bytes(), []byte(s)) {
+					t.Errorf("log leaked %q", s)
+				}
+				if strings.Contains(err.Error(), s) {
+					t.Errorf("error leaked %q: %v", s, err)
+				}
+			}
+		})
+	}
+}
+
+func TestRedactRemote(t *testing.T) {
+	cases := map[string]struct{ in, want string }{
+		"https user and password": {"https://user:pw@host/o/r", "https://host/o/r"},
+		"https token username":    {"https://ghp_tok@host/o/r", "https://host/o/r"},
+		"no userinfo":             {"https://host/o/r", "https://host/o/r"},
+		"scp without password":    {"git@host:o/r", "host:o/r"},
+		"scp-like with password":  {"user:pw@host:o/r", "host:o/r"},
+		"scp-like password slash": {"user:pa/ss@host:o/r", "host:o/r"},
+		"scp-like password @":     {"user:p@ss@host:o/r", "host:o/r"},
+		"https password slash":    {"https://user:pa/ss@host/o/r", "https://host/o/r"},
+		"https password @":        {"https://user:p@ss@host/o/r", "https://host/o/r"},
+		"@ in path":               {"https://host/o/r@v1.2", "https://host/o/r@v1.2"},
+		"option":                  {"--verbos", "--verbos"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := RedactRemote(c.in); got != c.want {
+				t.Fatalf("RedactRemote(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
+func TestParseURLErrorKeepsReasonWithoutPassword(t *testing.T) {
+	_, err := ParseURL("ssh://git@host:22x/o/r")
+	if err == nil || !strings.Contains(err.Error(), `invalid port ":22x"`) {
+		t.Fatalf("want invalid port reason, got %v", err)
+	}
+}
+
+func TestSecretsNeverPrinted(t *testing.T) {
+	tests := map[string]struct {
+		input   string
+		secrets []string
+	}{
+		"password with @":        {"https://user:p@ssw0rd@host/o/r", []string{"ssw0rd", "user"}},
+		"password with slash":    {"https://user:pa/ssw0rd@host/o/r", []string{"ssw0rd", "user"}},
+		"opaque with password":   {"user:pw5ecret@host:o/r", []string{"pw5ecret", "user"}},
+		"token as ssh username":  {"ssh://ghp_tok3n:x@host/o/r", []string{"ghp_tok3n"}},
+		"bad port with password": {"https://user:s3cret@host:badport/o/r", []string{"s3cret"}},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var printed []string
+			printed = append(printed, RedactRemote(tt.input))
+			if u, err := ParseURL(tt.input); err != nil {
+				printed = append(printed, err.Error())
+			} else {
+				printed = append(printed, redact(u).String())
+			}
+
+			for _, out := range printed {
+				for _, secret := range tt.secrets {
+					if strings.Contains(out, secret) {
+						t.Errorf("output %q leaks %q", out, secret)
+					}
+				}
+			}
+		})
 	}
 }
