@@ -1,8 +1,10 @@
 package get
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/url"
 	"os"
@@ -95,7 +97,22 @@ func ParseURL(remote string) (*url.URL, error) {
 
 	u, err := url.Parse(remote)
 	if err != nil {
-		return nil, fmt.Errorf("parsing url: %w", err)
+		_, userinfo, _ := splitUserinfo(remote)
+		if userinfo == "" {
+			return nil, fmt.Errorf("parsing url: %w", err)
+		}
+		// err quotes the raw URL, and a password containing "/" can land in ue.Err, so only
+		// keep ue.Err when the userinfo has no password.
+		var ue *url.Error
+		if errors.As(err, &ue) && !strings.Contains(userinfo, ":") {
+			return nil, fmt.Errorf("parsing url: %w", ue.Err)
+		}
+		return nil, errors.New("parsing url: invalid URL")
+	}
+
+	// Opaque means no "//" after the scheme (e.g. "user:pw@host:o/r"); Directory can't map it.
+	if u.Opaque != "" {
+		return nil, errors.New("parsing url: unsupported format")
 	}
 
 	if len(u.Scheme) == 0 {
@@ -121,9 +138,13 @@ func Directory(u *url.URL) (string, error) {
 	return dir, nil
 }
 
-// Clone clones the remote repository to the GETPATH and returns the directory
-func Clone(u *url.URL, dir string) (string, error) {
+// Clone clones the remote repository to the GETPATH and returns the directory.
+// If verbose is non-nil, each git command and its output is written to it.
+func Clone(u *url.URL, dir string, verbose io.Writer) (string, error) {
 	if isGitRepository(dir) {
+		if verbose != nil {
+			fmt.Fprintf(verbose, "already cloned: %s\n", dir)
+		}
 		return dir, nil
 	}
 
@@ -136,11 +157,10 @@ func Clone(u *url.URL, dir string) (string, error) {
 	// Check if git remote exists before creating any directories
 	_, err := git.Raw("ls-remote", func(g *types.Cmd) {
 		g.AddOptions(u.String())
-	})
+		g.AddOptions("HEAD")
+	}, verboseOption(verbose, u))
 	if err != nil {
-		sanitized := *u
-		sanitized.User = nil
-		return "", fmt.Errorf("git repository not found at %s: %w", sanitized.String(), err)
+		return "", fmt.Errorf("git repository not found at %s: %w", redact(u), err)
 	}
 
 	parentdir, _ := filepath.Split(dir)
@@ -148,11 +168,78 @@ func Clone(u *url.URL, dir string) (string, error) {
 		return "", fmt.Errorf("creating clone directory: %w", err)
 	}
 
-	if _, err = git.Clone(clone.Repository(u.String()), clone.Directory(dir)); err != nil {
+	if _, err = git.Clone(clone.Repository(u.String()), clone.Directory(dir), verboseOption(verbose, u)); err != nil {
 		return "", fmt.Errorf("git clone: %w", err)
 	}
 
 	return dir, nil
+}
+
+// verboseOption wraps the command executor to write the git command line and
+// its output to w. Credentials in u are redacted from the command line.
+func verboseOption(w io.Writer, u *url.URL) types.Option {
+	return func(g *types.Cmd) {
+		if w == nil {
+			return
+		}
+
+		raw, safe := u.String(), redact(u).String()
+		next := g.Executor
+		g.Executor = func(ctx context.Context, name string, debug bool, args ...string) (string, error) {
+			line := []string{name}
+			for _, a := range args {
+				line = append(line, shellQuote(strings.ReplaceAll(a, raw, safe)))
+			}
+			fmt.Fprintln(w, "+", strings.Join(line, " "))
+
+			out, err := next(ctx, name, debug, args...)
+			fmt.Fprint(w, out)
+			return out, err
+		}
+	}
+}
+
+// redact returns a copy of u that is safe to print: userinfo is dropped, like git does in
+// its own messages, except a bare ssh username (e.g. git@), which isn't a secret and keeps
+// the logged command identical to the one that ran.
+func redact(u *url.URL) *url.URL {
+	r := *u
+	if _, hasPassword := u.User.Password(); u.Scheme != "ssh" || hasPassword {
+		r.User = nil
+	}
+	return &r
+}
+
+// RedactRemote drops userinfo from a raw, possibly unparseable, remote string so it can be
+// put in an error message.
+func RedactRemote(s string) string {
+	if u, err := url.Parse(s); err == nil && u.Host != "" {
+		return redact(u).String()
+	}
+	// Like git's messages, this drops a scp-like username too.
+	scheme, _, rest := splitUserinfo(s)
+	return scheme + rest
+}
+
+// splitUserinfo splits a raw, possibly unparseable, remote into its scheme (with "://"),
+// userinfo and the rest. A password may contain "/" or "@", so userinfo runs to the last "@".
+func splitUserinfo(s string) (scheme, userinfo, rest string) {
+	i := strings.LastIndex(s, "@")
+	userinfo, rest = s[:max(i, 0)], s[i+1:]
+	if sch, after, ok := strings.Cut(userinfo, "://"); ok {
+		scheme, userinfo = sch+"://", after
+	}
+	return scheme, userinfo, rest
+}
+
+var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_@%+=:,./-]+$`)
+
+// shellQuote quotes s so the logged command can be pasted into a POSIX shell.
+func shellQuote(s string) string {
+	if shellSafe.MatchString(s) {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func isGitRepository(path string) bool {
