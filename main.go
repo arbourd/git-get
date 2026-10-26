@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/arbourd/git-get/get"
 )
@@ -110,13 +111,54 @@ func clone(remote string, stdout, verbose io.Writer) error {
 	}
 
 	dir := filepath.Join(path, relDir)
-	result, err := get.Clone(url, dir, verbose)
+	var result string
+	cloneFn := func() (err error) {
+		result, err = get.Clone(url, dir, verbose)
+		return err
+	}
+	if verbose != nil {
+		// Verbose output goes to stderr and would collide with the spinner.
+		err = cloneFn()
+	} else {
+		err = withSpinner("Cloning into "+get.ShortPath(dir)+"...", cloneFn)
+	}
 	if err != nil {
 		return fmt.Errorf("cloning repository: %w", err)
 	}
 
 	fmt.Fprintln(stdout, result)
 	return nil
+}
+
+var spinnerFrames = []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}
+
+// withSpinner runs fn behind a spinner on stderr. When stderr is not a terminal, fn runs bare so
+// piped and CI output is unchanged.
+func withSpinner(title string, fn func() error) error {
+	if fi, err := os.Stderr.Stat(); err != nil || fi.Mode()&os.ModeCharDevice == 0 {
+		return fn()
+	}
+
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		t := time.NewTicker(80 * time.Millisecond)
+		defer t.Stop()
+		for i := 0; ; i++ {
+			fmt.Fprintf(os.Stderr, "\r%s %s", spinnerFrames[i%len(spinnerFrames)], title)
+			select {
+			case <-done:
+				fmt.Fprint(os.Stderr, "\r\x1b[K")
+				return
+			case <-t.C:
+			}
+		}
+	}()
+	err := fn()
+	close(done)
+	<-stopped
+	return err
 }
 
 func buildUsage() string {
