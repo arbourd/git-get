@@ -8,6 +8,9 @@ on:
     tags:
       - v*
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -36,9 +39,32 @@ jobs:
       - run: go build -ldflags "-X main.Version=$(git rev-parse --short HEAD)" .
       - run: ./git-get github.com/arbourd/git-get
 
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v9
+
+  vulncheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: golang/govulncheck-action@v1
+        with:
+          # The action defaults this to "stable", which overrides go-version-file.
+          go-version-input: ""
+          go-version-file: go.mod
+
   bin:
     needs: [test]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v7
