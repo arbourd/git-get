@@ -280,7 +280,7 @@ var buildCompletionBinary = sync.OnceValues(func() (string, error) {
 func TestMain(m *testing.M) {
 	code := m.Run()
 	if binDir != "" {
-		os.RemoveAll(binDir)
+		_ = os.RemoveAll(binDir)
 	}
 	os.Exit(code)
 }
