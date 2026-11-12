@@ -1,4 +1,4 @@
-.TH GIT-GET 1 "2026-05-07" "git-get" "User Commands"
+.TH GIT-GET 1 "2026-11-10" "git-get" "User Commands"
 .SH NAME
 git-get \- clone a git repository to GETPATH
 .SH SYNOPSIS
@@ -29,12 +29,15 @@ exits without re-cloning.
 Print usage information and exit.
 .TP
 .BR \-v ", " \-\-verbose
-Print each git command that is run, and its output, to standard error.
+Print git commands and output to standard error.
 .TP
 .B \-\-version
 Print the version and exit.
 .B \-v
 alone (without a repository) also prints the version.
+.TP
+.B \-\-
+Treat every following argument as a repository, even if it begins with a dash.
 .SH ARGUMENTS
 .TP
 .I repository

@@ -16,15 +16,15 @@ var Version = "dev"
 
 const usage = `Usage: git-get [options] <repository>
 
-Clone a git repository to GETPATH (%s).
+Clone a git repository to GETPATH.
 
 Arguments:
-  repository  The git repository URL to clone
+  repository  The git repository URL
 
 Options:
   -h, --help     Show this help message
-  -v, --verbose  Show the git commands being run and their output
-  --version      Show version (also -v when no repository is given)`
+  -v, --verbose  Show git commands and output
+  --version      Show version`
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
@@ -50,7 +50,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return nil
 	}
 
-	// Help and version win wherever they appear. A lone -v prints the version;
+	// Help and version win wherever they appear before "--". A lone -v prints the version;
 	// alongside a repository it means --verbose.
 	for _, a := range args {
 		if a == "--" {
@@ -58,7 +58,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		}
 		switch {
 		case a == "--help" || a == "-h":
-			fmt.Fprintln(stdout, buildUsage())
+			fmt.Fprintln(stdout, usage)
 			return nil
 		case a == "--version" || (a == "-v" && len(args) == 1):
 			fmt.Fprintf(stdout, "git-get %s\n", Version)
@@ -73,22 +73,22 @@ func run(args []string, stdout, stderr io.Writer) error {
 		switch {
 		case positional || !strings.HasPrefix(a, "-"):
 			if remote != "" {
-				return fmt.Errorf("too many arguments: %q\n\n%s", get.RedactRemote(a), buildUsage())
+				return fmt.Errorf("too many arguments: %q\n\n%s", get.RedactRemote(a), usage)
 			}
 			remote = a
 		case a == "--":
 			positional = true
 		case a == "-v" || a == "--verbose":
 			if verbose != nil {
-				return fmt.Errorf("duplicate option %q\n\n%s", a, buildUsage())
+				return fmt.Errorf("duplicate option %q\n\n%s", a, usage)
 			}
 			verbose = stderr
 		default:
-			return fmt.Errorf("unknown option %q\n\n%s", get.RedactRemote(a), buildUsage())
+			return fmt.Errorf("unknown option %q\n\n%s", get.RedactRemote(a), usage)
 		}
 	}
 	if remote == "" {
-		return fmt.Errorf("no repository specified\n\n%s", buildUsage())
+		return fmt.Errorf("no repository specified\n\n%s", usage)
 	}
 
 	return clone(remote, stdout, verbose)
@@ -159,13 +159,4 @@ func withSpinner(title string, fn func() error) error {
 	close(done)
 	<-stopped
 	return err
-}
-
-func buildUsage() string {
-	path, err := get.AbsolutePath()
-	if err != nil {
-		return fmt.Sprintf(usage, "~/src")
-	}
-
-	return fmt.Sprintf(usage, get.ShortPath(path))
 }
