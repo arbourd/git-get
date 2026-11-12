@@ -70,6 +70,18 @@ func TestRun(t *testing.T) {
 			args:       []string{"--verbose", "--version"},
 			wantStdout: "testversion\n",
 		},
+		"--help wins over unknown option": {
+			args:       []string{"--bogus", "--help"},
+			wantStdout: "Usage: git-get",
+		},
+		"--help wins over too many arguments": {
+			args:       []string{"github.com/arbourd/git-get", "github.com/arbourd/other", "--help"},
+			wantStdout: "Usage: git-get",
+		},
+		"--version wins over unknown option": {
+			args:       []string{"--bogus", "--version"},
+			wantStdout: "git-get testversion\n",
+		},
 		"unknown option first": {
 			args:            []string{"-vv", "github.com/arbourd/git-get"},
 			wantRunErr:      true,

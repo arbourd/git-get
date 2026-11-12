@@ -4,7 +4,7 @@ builds:
   - env:
       - CGO_ENABLED=0
     ldflags:
-      - -X main.Version={{.Version}}
+      - -s -w -X main.Version={{.Version}}
     goos:
       - linux
       - darwin
@@ -20,6 +20,8 @@ archives:
   - name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     files:
       - completions/*
+      - LICENSE*
+      - README*
       - man/*
     format_overrides:
       - goos: windows

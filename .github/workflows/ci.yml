@@ -60,8 +60,28 @@ jobs:
           go-version-input: ""
           go-version-file: go.mod
 
-  bin:
-    needs: [test]
+  snapshot:
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go mod download
+
+      - name: Build GoReleaser snapshot
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: latest
+          args: release --clean --snapshot
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, lint, vulncheck]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -73,19 +93,12 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
       - run: go mod download
 
-      - uses: goreleaser/goreleaser-action@v7
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: latest
-          install-only: true
-
-      - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: goreleaser release --clean --snapshot
-
-      # Release binaries on release tags
-      - if: startsWith(github.ref, 'refs/tags/v')
-        run: goreleaser release --clean
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
