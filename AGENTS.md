@@ -26,6 +26,7 @@ get/get.go                 AbsolutePath, ShortPath, ParseURL, Directory, Clone, 
 get/complete.go            Shell completion walker
 completions/               Shell completion scripts (bash, fish, zsh, ps1)
 man/git-get.1              Man page (update when adding flags)
+skills/git-get/SKILL.md    Agent skill; update whenever the CLI's flags, output, or behavior change
 .github/workflows/ci.yml   CI: test, lint, vulncheck; goreleaser snapshot on branches, release on `v*` tags
 .goreleaser.yml            Release archives (LICENSE*, README*, man/*, completions/*)
 .golangci.yml              golangci-lint config
@@ -47,7 +48,7 @@ run() --complete → Complete() → AbsolutePath()   (walks GETPATH for shell co
 
 ## CLI flags
 
-`--complete` is checked first; then `-h`/`--help` and `--version` print and exit 0 and win over every other argument before `--`; a lone `-v` also prints the version, but with a repository it means `--verbose`. Unknown or duplicate options and extra arguments are errors that append the usage text; `--` ends options. Errors print as `error: <message>` on stderr, exit 1. `git get --help` is intercepted by git, so `-h` is the in-binary path. Update the `usage` const in `main.go` and `man/git-get.1` together.
+`--complete` is checked first; then `-h`/`--help` and `--version` print and exit 0 and win over every other argument before `--`; a lone `-v` also prints the version, but with a repository it means `--verbose`. Unknown or duplicate options and extra arguments are errors that append the usage text; `--` ends options. Errors print as `error: <message>` on stderr, exit 1. `git get --help` is intercepted by git, so `-h` is the in-binary path. Update the `usage` const in `main.go`, `man/git-get.1`, `README.md`, and `skills/git-get/SKILL.md` together.
 
 ## Hard constraints
 
