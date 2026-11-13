@@ -13,6 +13,7 @@ go vet ./...          # static analysis
 golangci-lint run     # lint (CI job)
 govulncheck ./...     # known vulnerabilities (CI job)
 actionlint            # lint .github/workflows; run after changing anything there (local only; not run in CI)
+npx --yes --package renovate -- renovate-config-validator --strict  # validate .github/renovate.json; run after changing it
 ```
 
 Version is injected at build time: `go build -ldflags "-X main.Version=$(git rev-parse --short HEAD)" .`
