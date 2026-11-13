@@ -12,7 +12,7 @@ go test -race ./...   # race detector (required by CI)
 go vet ./...          # static analysis
 golangci-lint run     # lint (CI job)
 govulncheck ./...     # known vulnerabilities (CI job)
-actionlint            # lint .github/workflows; run after changing anything there
+actionlint            # lint .github/workflows; run after changing anything there (local only; not run in CI)
 ```
 
 Version is injected at build time: `go build -ldflags "-X main.Version=$(git rev-parse --short HEAD)" .`
@@ -28,6 +28,7 @@ completions/               Shell completion scripts (bash, fish, zsh, ps1)
 man/git-get.1              Man page (update when adding flags)
 .github/workflows/ci.yml   CI: test, lint, vulncheck; goreleaser snapshot on branches, release on `v*` tags
 .goreleaser.yml            Release archives (LICENSE*, README*, man/*, completions/*)
+.golangci.yml              golangci-lint config
 ```
 
 ## Data flow
@@ -44,11 +45,13 @@ run() --complete → Complete() → AbsolutePath()   (walks GETPATH for shell co
 - `ShortPath` — inverse of `AbsolutePath`'s `~` expansion; used by `main.go` only for the "Cloning into …" spinner title
 - stdout carries only the resulting path (scripts do `cd $(git get …)`); verbose output goes to stderr via `verboseOption` (`Clone`'s `io.Writer`, nil = quiet). Git output is buffered, not streamed (the wrapper uses `CombinedOutput`).
 
-**CLI flags:** `--complete` is checked first; then `-h`/`--help` and `--version` print and exit 0 and win over every other argument before `--`; a lone `-v` also prints the version, but with a repository it means `--verbose`. Unknown or duplicate options and extra arguments are errors that append the usage text; `--` ends options. Errors print as `error: <message>` on stderr, exit 1. `git get --help` is intercepted by git, so `-h` is the in-binary path. Update the `usage` const in `main.go` and `man/git-get.1` together.
+## CLI flags
+
+`--complete` is checked first; then `-h`/`--help` and `--version` print and exit 0 and win over every other argument before `--`; a lone `-v` also prints the version, but with a repository it means `--verbose`. Unknown or duplicate options and extra arguments are errors that append the usage text; `--` ends options. Errors print as `error: <message>` on stderr, exit 1. `git get --help` is intercepted by git, so `-h` is the in-binary path. Update the `usage` const in `main.go` and `man/git-get.1` together.
 
 ## Hard constraints
 
-**Git operations:** use `github.com/ldez/go-git-cmd-wrapper/v2` exclusively. Never use `exec.Command("git", ...)` or build command strings to execute. (`shellQuote` only formats the verbose log line.)
+**Git operations:** use `github.com/ldez/go-git-cmd-wrapper/v2` exclusively. In non-test code, never use `exec.Command("git", ...)` or build command strings to execute. (`shellQuote` only formats the verbose log line.)
 
 **Dependencies:** zero new dependencies. The only permitted external module is `github.com/ldez/go-git-cmd-wrapper/v2`.
 
