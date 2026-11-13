@@ -12,7 +12,7 @@ go test -race ./...   # race detector (required by CI)
 go vet ./...          # static analysis
 golangci-lint run     # lint (CI job)
 govulncheck ./...     # known vulnerabilities (CI job)
-actionlint            # lint .github/workflows
+actionlint            # lint .github/workflows; run after changing anything there
 ```
 
 Version is injected at build time: `go build -ldflags "-X main.Version=$(git rev-parse --short HEAD)" .`
