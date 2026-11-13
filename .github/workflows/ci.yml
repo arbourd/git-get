@@ -27,7 +27,7 @@ jobs:
       - run: git config url.https://github.com/.insteadOf ssh://git@github.com/
 
       - if: runner.os != 'Windows'
-        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
