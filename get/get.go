@@ -78,7 +78,7 @@ func ShortPath(path string) string {
 	return filepath.Join(defaultPrefix, rel)
 }
 
-var scpSyntaxRe = regexp.MustCompile(`^(\w+)@([\w.-]+):(.*)$`)
+var scpSyntaxRe = regexp.MustCompile(`^(\w[\w.+~-]*)@([\w.-]+):(.*)$`)
 
 // ParseURL parses and returns a URL from the remote string provided
 func ParseURL(remote string) (*url.URL, error) {
@@ -125,7 +125,7 @@ func ParseURL(remote string) (*url.URL, error) {
 // The returned directory is always local (never escapes upward via ".."), so any GETPATH it is
 // joined to remains safely contained.
 func Directory(u *url.URL) (string, error) {
-	dir, err := url.JoinPath(u.Host, u.Path)
+	dir, err := url.JoinPath(u.Hostname(), u.Path)
 	if err != nil {
 		return "", fmt.Errorf("joining path: %w", err)
 	}

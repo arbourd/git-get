@@ -156,6 +156,30 @@ func TestParseURL(t *testing.T) {
 			remote: "git@github.com:arbourd/git-get.git",
 			want:   "ssh://git@github.com/arbourd/git-get.git",
 		},
+		"ssh hyphenated user": {
+			remote: "my-user@git.example.com:owner/repo.git",
+			want:   "ssh://my-user@git.example.com/owner/repo.git",
+		},
+		"ssh dotted user": {
+			remote: "my.user@git.example.com:owner/repo.git",
+			want:   "ssh://my.user@git.example.com/owner/repo.git",
+		},
+		"ssh user with shell metacharacters": {
+			remote:  "$(id>x)@evil.host:o/r",
+			wantErr: true,
+		},
+		"ssh user with leading hyphen": {
+			remote:  "-oProxyCommand=true@example.test:o/r",
+			wantErr: true,
+		},
+		"user with slash is not scp": {
+			remote: "foo/bar@host:o/r",
+			want:   "https://foo/bar@host:o/r",
+		},
+		"scp without user unsupported": {
+			remote:  "git.example.com:owner/repo.git",
+			wantErr: true,
+		},
 		"no protocol": {
 			remote: "github.com/arbourd/git-get",
 			want:   "https://github.com/arbourd/git-get",
@@ -202,6 +226,22 @@ func TestDirectory(t *testing.T) {
 				Path:   "arbourd/git-get",
 			},
 			want: "github.com/arbourd/git-get",
+		},
+		"ssh port is dropped": {
+			url: &url.URL{
+				Scheme: "ssh",
+				Host:   "git.example.com:2222",
+				Path:   "/arbourd/git-get",
+			},
+			want: "git.example.com/arbourd/git-get",
+		},
+		"https port is dropped": {
+			url: &url.URL{
+				Scheme: "https",
+				Host:   "git.example.com:8443",
+				Path:   "/arbourd/git-get.git",
+			},
+			want: "git.example.com/arbourd/git-get",
 		},
 		".git removal": {
 			url: &url.URL{
