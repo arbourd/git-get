@@ -8,10 +8,7 @@ import (
 )
 
 func TestComplete(t *testing.T) {
-	err := gitConfigGlobalFixture(t)
-	if err != nil {
-		t.Fatalf("unable to setup test fixture: %s", err)
-	}
+	gitConfigGlobalFixture(t)
 
 	getpath := t.TempDir()
 	repos := []string{
