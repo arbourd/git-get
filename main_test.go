@@ -148,11 +148,11 @@ func TestRun(t *testing.T) {
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
+			oldVersion := Version
+			t.Cleanup(func() { Version = oldVersion })
 			Version = "testversion"
 
-			if err := gitConfigGlobalFixture(t); err != nil {
-				t.Fatalf("setup: %v", err)
-			}
+			gitConfigGlobalFixture(t)
 			if c.setup != nil {
 				c.setup(t)
 			}
@@ -214,9 +214,7 @@ func TestRunVerbose(t *testing.T) {
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			if err := gitConfigGlobalFixture(t); err != nil {
-				t.Fatalf("setup: %v", err)
-			}
+			gitConfigGlobalFixture(t)
 
 			remotes := t.TempDir()
 			if _, err := git.Raw("init", func(g *types.Cmd) {
@@ -258,32 +256,20 @@ func TestRunVerbose(t *testing.T) {
 	}
 }
 
-func gitConfigGlobalFixture(t *testing.T) error {
+func gitConfigGlobalFixture(t *testing.T) {
 	t.Helper()
 	gitconfig := filepath.Join(t.TempDir(), ".gitconfig")
-	f, err := os.Create(gitconfig)
-	if err != nil {
-		return fmt.Errorf("unable to create .gitconfig: %w", err)
+	if err := os.WriteFile(gitconfig, nil, 0o600); err != nil {
+		t.Fatalf("unable to create .gitconfig: %v", err)
 	}
-	defer f.Close()
-
 	t.Setenv("GIT_CONFIG_GLOBAL", gitconfig)
-	return nil
 }
 
 func setupGetpath(t *testing.T) {
 	t.Helper()
 	getpath := t.TempDir()
-	seedRepos(t, getpath, []string{"github.com/arbourd/git-get"})
-	t.Setenv("GETPATH", getpath)
-}
-
-func seedRepos(t *testing.T, getpath string, repos []string) {
-	t.Helper()
-	for _, r := range repos {
-		dir := filepath.Join(getpath, filepath.FromSlash(r))
-		if err := os.MkdirAll(filepath.Join(dir, ".git"), 0755); err != nil {
-			t.Fatalf("setup: %v", err)
-		}
+	if err := os.MkdirAll(filepath.Join(getpath, "github.com", "arbourd", "git-get", ".git"), 0755); err != nil {
+		t.Fatalf("setup: %v", err)
 	}
+	t.Setenv("GETPATH", getpath)
 }

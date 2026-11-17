@@ -55,7 +55,7 @@ func TestBashCompletion(t *testing.T) {
 	env := completionEnv(t)
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			cmd := exec.Command("bash", "-c", fmt.Sprintf(`source completions/git-get.bash
+			cmd := exec.CommandContext(t.Context(), "bash", "-c", fmt.Sprintf(`source completions/git-get.bash
 COMP_WORDS=(%s)
 COMP_CWORD=%d
 _git_get
@@ -106,7 +106,7 @@ func TestFishCompletion(t *testing.T) {
 	env := completionEnv(t)
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			cmd := exec.Command("fish", "-c", fmt.Sprintf(`source completions/git-get.fish
+			cmd := exec.CommandContext(t.Context(), "fish", "-c", fmt.Sprintf(`source completions/git-get.fish
 complete --do-complete %q`, c.line))
 			cmd.Env = env
 
@@ -170,7 +170,7 @@ func TestZshCompletion(t *testing.T) {
 				wrapper = fmt.Sprintf("cword=%d", c.current)
 			}
 			// The current word is the last one; compadd is stubbed to print what would be offered.
-			cmd := exec.Command("zsh", "-c", fmt.Sprintf(`source completions/git-get.zsh
+			cmd := exec.CommandContext(t.Context(), "zsh", "-c", fmt.Sprintf(`source completions/git-get.zsh
 compadd() { local a; for a in "$@"; do [[ -n $a && $a != -S && $a != -- ]] && print -r -- $a; done }
 words=(%s)
 CURRENT=%d
@@ -231,7 +231,7 @@ func TestPowerShellCompletion(t *testing.T) {
 	env := completionEnv(t)
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			cmd := exec.Command("pwsh", "-NoProfile", "-Command", fmt.Sprintf(`. ./completions/git-get.ps1
+			cmd := exec.CommandContext(t.Context(), "pwsh", "-NoProfile", "-Command", fmt.Sprintf(`. ./completions/git-get.ps1
 $line = %s
 (TabExpansion2 -inputScript $line -cursorColumn $line.Length).CompletionMatches | ForEach-Object { $_.CompletionText }`, "'"+c.line+"'"))
 			cmd.Env = env
@@ -288,15 +288,15 @@ func TestMain(m *testing.M) {
 // completionEnv sets up a git config fixture, the binary on PATH and a seeded GETPATH.
 func completionEnv(t *testing.T) []string {
 	t.Helper()
-	if err := gitConfigGlobalFixture(t); err != nil {
-		t.Fatalf("setup: %v", err)
-	}
+	gitConfigGlobalFixture(t)
 	bin, err := buildCompletionBinary()
 	if err != nil {
 		t.Fatal(err)
 	}
 	getpath := t.TempDir()
-	seedRepos(t, getpath, []string{"github.com/arbourd/git-get"})
+	if err := os.MkdirAll(filepath.Join(getpath, "github.com", "arbourd", "git-get", ".git"), 0755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	pathSep := ":"
 	if runtime.GOOS == "windows" {
