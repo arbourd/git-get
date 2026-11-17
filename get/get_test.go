@@ -279,25 +279,28 @@ func TestDirectory(t *testing.T) {
 	}
 }
 
-// TestDirectoryNeverEscapes guards the invariant documented in AGENTS.md: Directory's
-// result must always be safe to join onto GETPATH. It exercises adversarial host/path
-// combinations that a future change to Directory's internals (e.g. dropping url.JoinPath's
-// anchoring in favor of naive concatenation) could turn into a real path escape.
+// TestDirectoryNeverEscapes checks that traversal input can't escape GETPATH. Directory
+// neutralizes these inputs rather than rejecting them, so each case pins the resulting path.
 func TestDirectoryNeverEscapes(t *testing.T) {
 	cases := map[string]struct {
-		url *url.URL
+		url  *url.URL
+		want string
 	}{
 		"traversal via path": {
-			url: &url.URL{Scheme: "https", Host: "example.com", Path: "../../../etc/passwd"},
+			url:  &url.URL{Scheme: "https", Host: "example.com", Path: "../../../etc/passwd"},
+			want: filepath.FromSlash("etc/passwd"),
 		},
 		"traversal via host": {
-			url: &url.URL{Scheme: "ssh", Host: "..", Path: "/../../etc/passwd"},
+			url:  &url.URL{Scheme: "ssh", Host: "..", Path: "/../../etc/passwd"},
+			want: filepath.FromSlash("etc/passwd"),
 		},
 		"traversal split across host and path": {
-			url: &url.URL{Scheme: "https", Host: "evil.com/../../etc", Path: "passwd"},
+			url:  &url.URL{Scheme: "https", Host: "evil.com/../../etc", Path: "passwd"},
+			want: filepath.FromSlash("etc/passwd"),
 		},
 		"empty host and path": {
-			url: &url.URL{Scheme: "https", Host: "", Path: ""},
+			url:  &url.URL{Scheme: "https", Host: "", Path: ""},
+			want: ".",
 		},
 	}
 
@@ -305,11 +308,13 @@ func TestDirectoryNeverEscapes(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			dir, err := Directory(c.url)
 			if err != nil {
-				// Rejecting the input outright also satisfies the invariant.
-				return
+				t.Fatalf("Directory(%+v) unexpected error: %v", c.url, err)
 			}
 			if !filepath.IsLocal(dir) {
 				t.Fatalf("Directory(%+v) returned non-local directory %q", c.url, dir)
+			}
+			if dir != c.want {
+				t.Fatalf("unexpected directory:\n\t(GOT): %q\n\t(WNT): %q", dir, c.want)
 			}
 		})
 	}
