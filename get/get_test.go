@@ -3,6 +3,9 @@ package get
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -400,6 +403,124 @@ func TestClone(t *testing.T) {
 				t.Fatalf("clone did not produce a repository: %v", statErr)
 			}
 		})
+	}
+}
+
+func TestCloneOffline(t *testing.T) {
+	t.Setenv("GIT_TERMINAL_PROMPT", "0")
+
+	cases := map[string]struct {
+		repo         string
+		remote       bool   // a bare remote exists for repo
+		existingDir  string // subdir of the target to create beforehand; "." is the target itself
+		wantErr      string // substring of the expected error
+		wantGit      bool   // target/.git exists afterwards
+		wantOrigin   bool   // clone recorded the requested URL as origin
+		wantNoParent bool   // the target's parent directory was never created
+	}{
+		"successful clone": {
+			repo:       "o/r",
+			remote:     true,
+			wantGit:    true,
+			wantOrigin: true,
+		},
+		// no remote: reaching ls-remote would fail, so success proves the early return
+		"already cloned returns early": {
+			repo:        "o/r",
+			existingDir: ".git",
+			wantGit:     true,
+		},
+		"directory exists without .git": {
+			repo:        "o/r",
+			remote:      true,
+			existingDir: ".",
+			wantErr:     "exists but",
+		},
+		"failing ls-remote creates no directories": {
+			repo:         "o/missing",
+			wantErr:      "git repository not found",
+			wantNoParent: true,
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			setupExampleRemote(t, c.remote, c.repo)
+
+			target := filepath.Join(t.TempDir(), "example.test", filepath.FromSlash(c.repo))
+			if c.existingDir != "" {
+				if err := os.MkdirAll(filepath.Join(target, c.existingDir), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			u := &url.URL{Scheme: "https", Host: "example.test", Path: c.repo}
+			path, err := Clone(u, target, nil)
+
+			wantPath := target
+			if c.wantErr != "" {
+				wantPath = ""
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("unexpected error:\n\t(GOT): %v\n\t(WNT): contains %q", err, c.wantErr)
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if path != wantPath {
+				t.Fatalf("unexpected path:\n\t(GOT): %q\n\t(WNT): %q", path, wantPath)
+			}
+
+			_, err = os.Stat(filepath.Join(target, ".git"))
+			if gotGit := err == nil; gotGit != c.wantGit {
+				t.Fatalf(".git present at %s = %t, want %t", target, gotGit, c.wantGit)
+			}
+
+			if c.wantOrigin {
+				origin, err := git.Raw("config", func(g *types.Cmd) {
+					g.AddOptions("--file")
+					g.AddOptions(filepath.Join(target, ".git", "config"))
+					g.AddOptions("remote.origin.url")
+				})
+				if err != nil {
+					t.Fatalf("reading origin: %v", err)
+				}
+				if got := strings.TrimSpace(origin); got != u.String() {
+					t.Fatalf("unexpected origin:\n\t(GOT): %q\n\t(WNT): %q", got, u.String())
+				}
+			}
+
+			// ls-remote must fail before any directory is created
+			if c.wantNoParent {
+				if _, err := os.Stat(filepath.Dir(target)); !errors.Is(err, fs.ErrNotExist) {
+					t.Fatalf("parent directory created before ls-remote succeeded: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// setupExampleRemote mirrors the fixture in TestRunVerbose (main_test.go); keep them in sync.
+// It points https://example.test/ at a local directory through the
+// global git config, creating a bare repository at repo inside it if bare is set.
+func setupExampleRemote(t *testing.T, bare bool, repo string) {
+	t.Helper()
+	gitConfigGlobalFixture(t)
+
+	remotes := t.TempDir()
+	if bare {
+		if _, err := git.Raw("init", func(g *types.Cmd) {
+			g.AddOptions("--bare")
+			g.AddOptions(filepath.Join(remotes, filepath.FromSlash(repo)))
+		}); err != nil {
+			t.Fatalf("git init: %v", err)
+		}
+	}
+
+	// file:///C:/... on Windows, file:///tmp/... elsewhere.
+	remoteURL := "file:///" + strings.TrimPrefix(filepath.ToSlash(remotes), "/") + "/"
+	cfg := fmt.Sprintf("[url %q]\n\tinsteadOf = https://example.test/\n", remoteURL)
+	if err := os.WriteFile(os.Getenv("GIT_CONFIG_GLOBAL"), []byte(cfg), 0o600); err != nil {
+		t.Fatalf("write gitconfig: %v", err)
 	}
 }
 
