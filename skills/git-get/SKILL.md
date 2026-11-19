@@ -1,30 +1,46 @@
 ---
 name: git-get
-description: Clone git repositories with `git get` instead of `git clone`, so they land at a predictable path under GETPATH (default ~/src). Use whenever the user asks to clone a repo by URL or `host/owner/repo` and gives no destination path, even if they say "git clone".
+description: Clone git repositories with `git get` instead of `git clone`, so they land at a predictable path under GETPATH (default ~/src). Use whenever the user asks to clone a repo by URL or `host/owner/repo` and gives no destination path, even if they say "git clone". For a named destination or `git clone` options, use `git clone`.
 ---
 
 # git-get
 
-`git get` clones to `$GETPATH/<host>/<owner>/<repo>` (default `GETPATH=~/src`), so every repo has one predictable location, e.g. `github.com/owner/repo` → `~/src/github.com/owner/repo`. Use it in place of `git clone` so repos don't end up scattered in the current directory.
+`git get <repository>` clones to `$GETPATH/<host>/<owner>/<repo>` (default `~/src`) and prints that path, so every repo has one predictable location.
 
-```sh
-git get github.com/owner/repo
-git get https://github.com/owner/repo.git
-git get git@github.com:owner/repo.git
-```
+## Rules
 
-The host is required: `owner/repo` alone is read as host `owner` and fails. A bare `host/owner/repo` is cloned over HTTPS unless a git `url.<base>.insteadOf` rule rewrites it (e.g. to SSH); for a private repo, pass the `git@host:owner/repo` form.
-
-stdout is only the resulting path (progress and `-v/--verbose` git output go to stderr). Capture it and check the exit status before using it, since a failed clone prints nothing and `cd ""` succeeds in zsh and sh:
+1. **Give the host.** `owner/repo` alone is read as host `owner` and fails.
+2. **Capture the path and check the exit status** before using it. A failed clone prints nothing, and `cd ""` succeeds in zsh and sh:
 
 ```sh
 dir=$(git get -- "<repo>") && cd "$dir"
 ```
 
-If the repo is already cloned, it prints the existing path without cloning, fetching, or pulling; to update it, run `git pull` there.
+## Recipes
 
-It takes one repository per call, and options may come anywhere before `--`. `-h`/`--help` and `--version` print and exit 0 (use `git get -h`; git intercepts `git get --help`). A lone `-v` also prints the version, but with a repository it means `--verbose`. Change the root with `$GETPATH` or `git config --global get.path ~/dev` (the env var wins).
+```sh
+git get github.com/owner/repo          # ~/src/github.com/owner/repo
+git get https://github.com/owner/repo.git
+git get git@github.com:owner/repo.git  # SSH, for a private repo
+git get -v github.com/owner/repo       # git commands and output on stderr
+GETPATH=~/corp git get github.com/org/repo
+```
 
-`git get` has no `git clone` options (`--depth`, `-b`, `--recurse-submodules`). Use `git clone` for those, or when the user names a destination. If `git get` isn't installed, clone to the same layout yourself: `git clone <url> <root>/<host>/<owner>/<repo>`, where `<root>` is `$GETPATH`, else `git config get.path`, else `~/src` (expand `~` yourself), and `<repo>` has no `.git` suffix.
+One repository per call. `--` ends option parsing, so later arguments are treated as the repository even if they begin with `-`. For clone options such as `--depth`, `-b`, or `--recurse-submodules`, use `git clone`.
 
-On an error such as `<dir> exists but <dir>/.git does not` or `GETPATH is not an absolute path`, report it. Don't delete the directory or change git config to work around it.
+## Gotchas
+
+- **Protocol:** a bare `host/owner/repo` is cloned over HTTPS unless an `url.<base>.insteadOf` rule rewrites it. A private repo needs the `git@host:owner/repo` form.
+- **Already cloned:** it prints the existing path with no fetch or pull. Run `git pull` there to update.
+- **Existing directory:** `<dir> exists but <dir>/.git does not` means something else is in the way.
+- **Missing or private repo:** the remote is checked first, so `git repository not found at <url>` leaves no directory behind. Check the URL or auth.
+- **Directory:** the `.git` suffix, port, and credentials are dropped, so `https://host:8443/o/r.git` is `host/o/r`.
+- **GETPATH:** `$GETPATH`, else global `git config get.path`, else `~/src`; it must be absolute or start with `~/`. Suggest `git config --global get.path ~/dev` to the user rather than running it.
+
+## Not installed
+
+Clone to the same layout yourself: `git clone <url> <root>/<host>/<owner>/<repo>`, with `<root>` resolved as above (expand `~` yourself) and no `.git` suffix on `<repo>`.
+
+## More
+
+`git get -h` prints usage; `git get --help` opens the man page.
