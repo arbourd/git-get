@@ -64,6 +64,8 @@ Only the resulting path is printed to stdout, so it works with `cd`.
 $ cd "$(git get github.com/arbourd/git-get)"
 ```
 
+If the repository is already cloned, its path is printed and nothing is fetched or pulled. The remote is checked before any directory is created, so a missing or private repository leaves nothing behind.
+
 ### Options
 
 | Option              | Description                  |
@@ -73,9 +75,11 @@ $ cd "$(git get github.com/arbourd/git-get)"
 | `--version`         | Show the version             |
 | `--`                | End of options               |
 
+A lone `-v` prints the version; with a repository it means `--verbose`.
+
 ### SSH
 
-A repository without a protocol (`github.com/arbourd/git-get`) is cloned over HTTPS. To use SSH instead, redirect with [`insteadOf`](https://git-scm.com/docs/git-config#Documentation/git-config.txt-urlltbasegtinsteadOf).
+A repository without a protocol (`github.com/arbourd/git-get`) is cloned over HTTPS. For a private repository, pass `git@host:owner/repo`, or redirect with [`insteadOf`](https://git-scm.com/docs/git-config#Documentation/git-config.txt-urlltbasegtinsteadOf).
 
 ```console
 $ git config --global url.ssh://git@github.com/.insteadOf https://github.com/

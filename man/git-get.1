@@ -1,92 +1,136 @@
-.TH GIT-GET 1 "2026-11-10" "git-get" "User Commands"
+.TH GIT-GET 1 "2026-11-23" "git-get" "User Commands"
 .SH NAME
-git-get \- clone a git repository to GETPATH
+git-get \- clone a git repository into a directory tree under GETPATH
 .SH SYNOPSIS
 .B git-get
 .RI [ options ]
 .I repository
 .SH DESCRIPTION
 .B git-get
-clones a git repository to a structured path under
-.B GETPATH
-(default:
-.IR ~/src ),
-mirroring the repository's URL as a directory hierarchy in the style of
-.BR go-get (1).
+clones a repository to
+.IR $GETPATH/host/path ,
+in the style of
+.IR "go get" .
 For example,
-.I github.com/arbourd/git-get
+.I github.com/owner/repo
 is cloned to
-.IR $GETPATH/github.com/arbourd/git-get .
+.IR ~/src/github.com/owner/repo .
+The resulting path is printed to standard output, so it can be used with
+.BR cd .
 .PP
 If the destination already contains a
 .I .git
-directory,
-.B git-get
-exits without re-cloning.
+file or directory, nothing is cloned, fetched, or pulled, and the existing path is
+printed. If the destination exists without one, it is an error. The remote is
+checked with
+.B git ls\-remote
+before any directory is created, so a missing or private repository leaves
+nothing behind.
+.PP
+Progress is shown on standard error only when it is a terminal.
 .SH OPTIONS
 .TP
-.BR \-h ", " \-\-help
-Print usage information and exit.
-.TP
 .BR \-v ", " \-\-verbose
-Print git commands and output to standard error.
+Print the git commands and their output to standard error. A lone
+.B \-v
+with no repository prints the version instead.
+.TP
+.BR \-h ", " \-\-help
+Print usage information and exit. Git intercepts
+.B git get \-\-help
+to show this page, so use
+.B \-h
+for the usage text.
 .TP
 .B \-\-version
 Print the version and exit.
-.B \-v
-alone (without a repository) also prints the version.
 .TP
 .B \-\-
 Treat every following argument as a repository, even if it begins with a dash.
+.PP
+Options may appear before or after the repository. Unknown or duplicate options
+and extra arguments are errors.
+.B \-h
+and
+.B \-\-version
+take precedence over everything else before
+.BR \-\- .
 .SH ARGUMENTS
 .TP
 .I repository
-The repository to clone. Accepted forms:
+The repository to clone, in one of these forms:
 .RS
 .IP \(bu 4
-Bare path:
-.I github.com/user/repo
+.I host/owner/repo
 .IP \(bu 4
-HTTPS URL:
-.I https://github.com/user/repo.git
+.I https://host/owner/repo.git
 .IP \(bu 4
-SSH URL:
-.I git@github.com:user/repo.git
+.I ssh://git@host/owner/repo.git
+.IP \(bu 4
+.I git@host:owner/repo.git
 .RE
+.IP
+The host is required. A trailing
+.I .git
+is removed from the directory. A port and any credentials are not part of the
+directory. A bare
+.I host/owner/repo
+is cloned over HTTPS.
+.SH EXIT STATUS
+Exits 0 on success, including
+.B \-h
+and
+.BR \-\-version .
+Any error exits 1 and prints a line beginning
+.B error:
+to standard error. Nothing is printed to standard output on failure.
 .SH ENVIRONMENT
 .TP
 .B GETPATH
-Root directory for cloned repositories. Takes precedence over
+Root directory for cloned repositories. It must be an absolute path, or begin
+with
+.I ~/
+or be
+.IR ~ .
+Takes precedence over
 .BR get.path .
 .SH CONFIGURATION
 .TP
 .B get.path
-Git config key for the root directory. Set with:
+Root directory for cloned repositories, read from the global git config and
+used when
+.B GETPATH
+is not set. The default is
+.IR ~/src .
+.PP
 .RS
 .EX
 git config \-\-global get.path ~/dev
 .EE
 .RE
-If neither
-.B GETPATH
-nor
-.B get.path
-is set, the default is
-.IR ~/src .
+.PP
+To clone over SSH instead, rewrite the URL with
+.BR url.<base>.insteadOf :
+.PP
+.RS
+.EX
+git config \-\-global url.ssh://git@github.com/.insteadOf https://github.com/
+.EE
+.RE
 .SH EXAMPLES
 .EX
-$ git get github.com/arbourd/git-get
-~/src/github.com/arbourd/git-get
-
-$ git get https://github.com/arbourd/git-get.git
-~/src/github.com/arbourd/git-get
-
-$ git get git@github.com:arbourd/git-get.git
-~/src/github.com/arbourd/git-get
-
+$ git get github.com/owner/repo
+~/src/github.com/owner/repo
+$ git get https://github.com/owner/repo.git
+~/src/github.com/owner/repo
+$ git get git@github.com:owner/repo.git
+~/src/github.com/owner/repo
 $ GETPATH=~/corp git get github.com/org/repo
 ~/corp/github.com/org/repo
+$ cd "$(git get github.com/owner/repo)"
+$ git get \-v github.com/owner/repo
+$ git get \-\- \-odd\-name
 .EE
 .SH SEE ALSO
 .BR git (1),
-.BR git-clone (1)
+.BR git\-clone (1)
